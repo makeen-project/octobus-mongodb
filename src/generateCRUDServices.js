@@ -3,10 +3,11 @@ import Joi from 'joi';
 import { ObjectID as objectId } from 'mongodb';
 
 const paramsToCursor = (collection, params = {}) => {
-  const { query, fields, orderBy, limit, skip } = Object.assign({
+  const { query, fields, orderBy, limit, skip } = {
     query: {},
     fields: {},
-  }, params);
+    ...params,
+  };
 
   let cursor = collection.find(query, fields);
 
@@ -154,10 +155,11 @@ export default (namespace, _options = {}) => {
   const doFindOne = (params) => {
     const collection = getCollection();
 
-    const { query, options: queryOptions } = Object.assign({
+    const { query, options: queryOptions } = {
       query: {},
       options: {},
-    }, params);
+      ...params,
+    };
 
     return collection.findOne(query, queryOptions);
   };
@@ -178,10 +180,11 @@ export default (namespace, _options = {}) => {
       return getCollection().deleteOne({ _id: params });
     }
 
-    const { filter, options: filterOptions } = Object.assign({
+    const { filter, options: filterOptions } = {
       filter: {},
       options: {},
-    }, params);
+      ...params,
+    };
 
     const method = one ? 'deleteOne' : 'deleteMany';
 
@@ -189,10 +192,11 @@ export default (namespace, _options = {}) => {
   };
 
   const doUpdate = (params, one = true) => {
-    const { filter, update, options: updateOptions } = Object.assign({
+    const { filter, update, options: updateOptions } = {
       filter: {},
       options: {},
-    }, params);
+      ...params,
+    };
 
     const method = one ? 'updateOne' : 'updateMany';
 
