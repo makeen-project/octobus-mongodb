@@ -49,16 +49,9 @@ export default (namespace, _options = {}) => {
       return dispatch(`${namespace}.save`, params);
     },
 
-    save({ params, dispatch, emitBefore, emitAfter }) {
-      return dispatch(`${namespace}.validate`, params)
-        .then((data) => {
-          emitBefore(`${namespace}.save`, data);
-          return doSave(getCollection(), data);
-        })
-        .then((result) => {
-          emitAfter(`${namespace}.save`, result);
-          return result;
-        });
+    async save({ params, dispatch }) {
+      const data = await dispatch(`${namespace}.validate`, params);
+      return await doSave(getCollection(), data);
     },
 
     removeOne({ params }) {

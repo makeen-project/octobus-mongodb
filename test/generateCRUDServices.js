@@ -226,4 +226,23 @@ describe('generateCRUDServices', () => {
       ))
     ))
   ));
+
+  it('should execute before and after save events', () => {
+    const before = sinon.spy();
+    const after = sinon.spy();
+
+    dispatcher.onBefore('entity.User.save', before);
+    dispatcher.onAfter('entity.User.save', after);
+
+    const promise = dispatcher.dispatch('entity.User.create', {
+      firstName: 'John',
+      lastName: 'Doe',
+    });
+
+    expect(before).to.have.been.calledOnce();
+
+    return promise.then(() => {
+      expect(after).to.have.been.calledOnce();
+    });
+  });
 });
