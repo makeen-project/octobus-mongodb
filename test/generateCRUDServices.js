@@ -34,17 +34,11 @@ describe('generateCRUDServices', () => {
   beforeEach(() => {
     dispatcher = createEventDispatcher();
 
-    return generateCRUDServices('entity.User', {
+    dispatcher.subscribeMap('entity.User', generateCRUDServices('entity.User', {
       db,
       schema: userSchema,
       collectionName: 'User',
-      indexes: {
-        email: 'email',
-        fullname: ['firstName', 'lastName'],
-      },
-    }).then((map) => {
-      dispatcher.subscribeMap('entity.User', map);
-    });
+    }));
   });
 
   afterEach(() => db.collection('User').remove());
@@ -231,26 +225,5 @@ describe('generateCRUDServices', () => {
           })
       ))
     ))
-  ));
-
-  it('should create a simple index', () => (
-    db.collection('User').listIndexes().toArray().then((indexes) => {
-      const emailIndex = indexes.find(({ name }) => name === 'email');
-      expect(emailIndex).to.exist();
-      expect(emailIndex.key).to.deep.equal({
-        email: 1,
-      });
-    })
-  ));
-
-  it('should create an index on multiple fields', () => (
-    db.collection('User').listIndexes().toArray().then((indexes) => {
-      const fullnameIndex = indexes.find(({ name }) => name === 'fullname');
-      expect(fullnameIndex).to.exist();
-      expect(fullnameIndex.key).to.deep.equal({
-        firstName: 1,
-        lastName: 1,
-      });
-    })
   ));
 });
