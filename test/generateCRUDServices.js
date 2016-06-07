@@ -42,8 +42,8 @@ describe('generateCRUDServices', () => {
         email: 'email',
         fullname: ['firstName', 'lastName'],
       },
-    }).then(({ namespace, map }) => {
-      dispatcher.subscribeMap(namespace, map);
+    }).then((map) => {
+      dispatcher.subscribeMap('entity.User', map);
     });
   });
 

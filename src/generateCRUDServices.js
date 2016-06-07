@@ -204,5 +204,5 @@ export default (namespace, _options = {}) => {
   };
 
   return Promise.resolve(autoCreateCollection && createCollection(db, collectionName, indexes))
-    .then(() => ({ namespace, map }));
+    .then(() => map);
 };
