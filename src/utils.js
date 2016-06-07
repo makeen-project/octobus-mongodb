@@ -1,9 +1,17 @@
 export const paramsToCursor = (collection, params = {}) => {
-  const { query, fields, orderBy, limit, skip } = {
+  const { query, orderBy, limit, skip } = {
     query: {},
-    fields: {},
     ...params,
   };
+
+  let fields = params.fields || {};
+
+  if (Array.isArray(fields)) {
+    fields = fields.reduce((acc, field) => ({
+      ...acc,
+      [field]: 1,
+    }), {});
+  }
 
   let cursor = collection.find(query, fields);
 
