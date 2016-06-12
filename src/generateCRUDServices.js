@@ -27,6 +27,10 @@ export default (namespace, _options = {}) => {
   const { collectionName, db, schema } = options;
   const getCollection = () => db.collection(collectionName);
 
+  const expandReferences = (refs, result) => {
+    throw new Error('Not implemented');
+  };
+
   const map = {
     query({ params }) {
       return params(getCollection(), db);
@@ -37,7 +41,7 @@ export default (namespace, _options = {}) => {
     },
 
     findOne({ params }) {
-      return doFindOne(getCollection(), params);
+      return expandReferences(doFindOne(getCollection(), params));
     },
 
     findById({ params }) {

@@ -23,6 +23,17 @@ const userSchema = {
   updatedAt: Joi.date(),
 };
 
+const categorySchema = {
+  _id: Joi.object(),
+  name: Joi.string().required(),
+};
+
+const productSchema = {
+  _id: Joi.object(),
+  name: Joi.string().required(),
+  categoryId: Joi.object().required(),
+};
+
 describe('generateCRUDServices', () => {
   let dispatcher;
   let db;
@@ -41,9 +52,29 @@ describe('generateCRUDServices', () => {
       schema: userSchema,
       collectionName: 'User',
     }));
+
+    dispatcher.subscribeMap('entity.Category', generateCRUDServices('entity.Category', {
+      db,
+      schema: categorySchema,
+      collectionName: 'Category',
+    }));
+
+    dispatcher.subscribeMap('entity.Product', generateCRUDServices('entity.Product', {
+      db,
+      schema: productSchema,
+      collectionName: 'Product',
+      references: [{
+        refId: 'categoryId',
+        refEntity: 'Category',
+      }],
+    }));
   });
 
-  afterEach(() => db.collection('User').remove());
+  afterEach(
+    () => Promise.all(['User', 'Category', 'Product'].map(
+      (collectionName) => db.collection(collectionName).remove()
+    ))
+  );
 
   after(() => db.close());
 
@@ -284,4 +315,23 @@ describe('generateCRUDServices', () => {
       });
     });
   });
+
+  it('should expand references', () => (
+    dispatcher.dispatch('entity.Category.create', {
+      name: 'Laptops',
+    }).then((category) => (
+      dispatcher.dispatch('entity.Product.create', {
+        name: 'MacBook Pro',
+        categoryId: category._id,
+      }).then(({ _id }) => (
+        dispatcher.dispatch('entity.Product.findOne', {
+          query: { _id },
+          expand: ['categoryId'],
+        }).then((product) => {
+          expect(product.category).to.exist();
+          expect(product.category.name).to.equal('Laptops');
+        })
+      ))
+    ))
+  ));
 });
