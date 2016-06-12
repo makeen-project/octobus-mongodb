@@ -1,7 +1,7 @@
 import Joi from 'joi';
 import { doFindOne, doSave, doRemove, doUpdate } from './db';
 import {
-  paramsToCursor, extractCollectionName, addTimestamps, addTimestampToUpdate,
+  paramsToCursor, extractCollectionName, addTimestamps, addTimestampToUpdate, expand,
 } from './utils';
 
 export default (namespace, _options = {}) => {
@@ -27,21 +27,27 @@ export default (namespace, _options = {}) => {
   const { collectionName, db, schema } = options;
   const getCollection = () => db.collection(collectionName);
 
-  const expandReferences = (refs, result) => {
-    throw new Error('Not implemented');
-  };
-
   const map = {
     query({ params }) {
       return params(getCollection(), db);
     },
 
-    find({ params }) {
-      return paramsToCursor(getCollection(), params);
+    find({ params, dispatch }) {
+      const cursor = paramsToCursor(getCollection(), params);
+
+      if (!params || !params.expand) {
+        return cursor;
+      }
+
+      return cursor.toArray().then((result) => (
+        expand(dispatch, result, params.expand, options.references)
+      ));
     },
 
-    findOne({ params }) {
-      return expandReferences(doFindOne(getCollection(), params));
+    findOne({ params, dispatch }) {
+      return doFindOne(getCollection(), params).then((result) => (
+        expand(dispatch, result, params.expand, options.references)
+      ));
     },
 
     findById({ params }) {
@@ -78,7 +84,13 @@ export default (namespace, _options = {}) => {
       const data = await dispatch(`${namespace}.validate`, params);
 
       if (options.timestamps.generate) {
-        addTimestamps(data, options.timestamps);
+        if (Array.isArray(data)) {
+          data.forEach((item) => {
+            addTimestamps(item, options.timestamps);
+          });
+        } else {
+          addTimestamps(data, options.timestamps);
+        }
       }
 
       return await doSave(getCollection(), data);

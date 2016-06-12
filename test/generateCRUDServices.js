@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import Joi from 'joi';
 import { expect } from 'chai';
 import sinon from 'sinon';
@@ -26,12 +27,13 @@ const userSchema = {
 const categorySchema = {
   _id: Joi.object(),
   name: Joi.string().required(),
+  productIds: Joi.array(),
 };
 
 const productSchema = {
   _id: Joi.object(),
   name: Joi.string().required(),
-  categoryId: Joi.object().required(),
+  categoryId: Joi.object(),
 };
 
 describe('generateCRUDServices', () => {
@@ -57,6 +59,10 @@ describe('generateCRUDServices', () => {
       db,
       schema: categorySchema,
       collectionName: 'Category',
+      references: [{
+        refId: 'productIds',
+        refEntity: 'Product',
+      }],
     }));
 
     dispatcher.subscribeMap('entity.Product', generateCRUDServices('entity.Product', {
@@ -316,22 +322,51 @@ describe('generateCRUDServices', () => {
     });
   });
 
-  it('should expand references', () => (
-    dispatcher.dispatch('entity.Category.create', {
-      name: 'Laptops',
-    }).then((category) => (
-      dispatcher.dispatch('entity.Product.create', {
-        name: 'MacBook Pro',
-        categoryId: category._id,
-      }).then(({ _id }) => (
-        dispatcher.dispatch('entity.Product.findOne', {
-          query: { _id },
-          expand: ['categoryId'],
-        }).then((product) => {
-          expect(product.category).to.exist();
-          expect(product.category.name).to.equal('Laptops');
-        })
+  describe('expanding references', () => {
+    it('should expand a single reference', () => (
+      dispatcher.dispatch('entity.Category.create', {
+        name: 'Laptops',
+      }).then((category) => (
+        dispatcher.dispatch('entity.Product.create', {
+          name: 'MacBook Pro',
+          categoryId: category._id,
+        }).then(({ _id }) => (
+          dispatcher.dispatch('entity.Product.findOne', {
+            query: { _id },
+            expand: [{
+              refId: 'categoryId',
+              as: 'category',
+            }],
+          }).then((product) => {
+            expect(product.category).to.exist();
+            expect(product.category.name).to.equal('Laptops');
+          })
+        ))
       ))
-    ))
-  ));
+    ));
+
+    it('should expand an array of references', () => (
+      dispatcher.dispatch('entity.Product.create',
+        _.range(1, 5).map((id) => ({
+          name: `product${id}`,
+        }))
+      ).then((products) => (
+        dispatcher.dispatch('entity.Category.create', {
+          name: 'category1',
+          productIds: products.map(({ _id }) => _id),
+        }).then(({ _id }) => (
+          dispatcher.dispatch('entity.Category.findOne', {
+            query: { _id },
+            expand: [{
+              refId: 'productIds',
+              as: 'products',
+            }],
+          }).then((category) => {
+            expect(category.products).to.exist();
+            expect(category.products).to.have.a.lengthOf(4);
+          })
+        ))
+      ))
+    ));
+  });
 });
