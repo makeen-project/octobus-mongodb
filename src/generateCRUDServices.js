@@ -1,12 +1,27 @@
 import Joi from 'joi';
 import { doFindOne, doSave, doRemove, doUpdate } from './db';
-import { paramsToCursor, extractCollectionName } from './utils';
+import {
+  paramsToCursor, extractCollectionName, addTimestamps, addTimestampToUpdate,
+} from './utils';
 
 export default (namespace, _options = {}) => {
   const options = Joi.attempt(_options, {
     collectionName: Joi.string().default(extractCollectionName(namespace)),
     db: Joi.required(),
     schema: Joi.object(),
+    timestamps: Joi.object().keys({
+      generate: Joi.boolean().required(),
+      createKey: Joi.string().required(),
+      updateKey: Joi.string().required(),
+    }).default({
+      generate: true,
+      createKey: 'createdAt',
+      updateKey: 'updatedAt',
+    }),
+    references: Joi.array().items(Joi.object().keys({
+      refId: Joi.any().required(),
+      refEntity: Joi.string().required(),
+    })).default([]),
   });
 
   const { collectionName, db, schema } = options;
@@ -34,11 +49,17 @@ export default (namespace, _options = {}) => {
     },
 
     updateOne({ params }) {
-      return doUpdate(getCollection(), params);
+      return doUpdate(getCollection(), {
+        ...params,
+        update: addTimestampToUpdate(params.update, options.timestamps),
+      });
     },
 
     updateMany({ params }) {
-      return doUpdate(getCollection(), params, false);
+      return doUpdate(getCollection(), {
+        ...params,
+        update: addTimestampToUpdate(params.update, options.timestamps),
+      }, false);
     },
 
     replaceOne({ dispatch, params }) {
@@ -51,6 +72,11 @@ export default (namespace, _options = {}) => {
 
     async save({ params, dispatch }) {
       const data = await dispatch(`${namespace}.validate`, params);
+
+      if (options.timestamps.generate) {
+        addTimestamps(data, options.timestamps);
+      }
+
       return await doSave(getCollection(), data);
     },
 

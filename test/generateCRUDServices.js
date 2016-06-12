@@ -19,6 +19,8 @@ const userSchema = {
     day: Joi.number(),
   },
   hobbies: Joi.array().items(Joi.string()),
+  createdAt: Joi.date(),
+  updatedAt: Joi.date(),
 };
 
 describe('generateCRUDServices', () => {
@@ -243,6 +245,43 @@ describe('generateCRUDServices', () => {
 
     return promise.then(() => {
       expect(after).to.have.been.calledOnce();
+    });
+  });
+
+  it('should generate timestamps', () => {
+    const now = Date.now();
+    return dispatcher.dispatch('entity.User.create', {
+      firstName: 'John',
+      lastName: 'Doe',
+    }).then((createdUser) => {
+      const { createdAt } = createdUser;
+
+      expect(createdAt).to.exist();
+      expect(createdAt).to.be.instanceof(Date);
+      expect(createdAt.getTime()).to.be.above(now);
+
+      return dispatcher.dispatch('entity.User.replaceOne', Object.assign({}, createdUser, {
+        lastName: 'Donovan',
+      })).then((updatedUser) => {
+        const { updatedAt } = updatedUser;
+        expect(updatedAt.getTime()).to.be.above(createdAt.getTime());
+
+        return dispatcher.dispatch('entity.User.updateOne', {
+          filter: {
+            _id: createdUser._id,
+          },
+          update: {
+            $set: {
+              firstName: 'Jonathan',
+            },
+          },
+        }).then(() => (
+          dispatcher.dispatch('entity.User.findById', createdUser._id)
+            .then(({ updatedAt: lastUpdateAt }) => {
+              expect(lastUpdateAt.getTime()).to.be.above(updatedAt.getTime());
+            })
+        ));
+      });
     });
   });
 });
