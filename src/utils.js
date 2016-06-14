@@ -58,3 +58,72 @@ export const addTimestampToUpdate = (update, { updateKey }) => {
     $set,
   };
 };
+
+export const expand = (dispatch, result, refs = [], refsConfig) => {
+  if (!refs.length) {
+    return result;
+  }
+
+  if (Array.isArray(result)) {
+    const refsMap = {};
+    result.forEach((item) => {
+      refs.forEach(({ refId }) => {
+        if (!refsMap[refId]) {
+          refsMap[refId] = [];
+        }
+
+        if (Array.isArray(item[refId])) {
+          refsMap[refId].push(...item[refId]);
+        } else {
+          refsMap[refId].push(item[refId]);
+        }
+      });
+    });
+
+    return Promise.all(
+      refs.map(({ refId }) => {
+        const refConfig = refsConfig.find(({ refId: _refId }) => _refId === refId);
+        return dispatch(`entity.${refConfig.refEntity}.findMany`, {
+          query: {
+            _id: {
+              $in: refsMap[refId],
+            },
+          },
+        }).then((c) => c.toArray());
+      })
+    ).then((expandedReferences) => (
+      result.map((item) => (
+        refs.reduce((acc, { as, refId }, index) => ({
+          ...acc,
+          [as]: Array.isArray(item[refId]) ?
+            expandedReferences[index].filter(
+              ({ _id }) => item[refId].find((itemRefId) => itemRefId.toString() === _id.toString())
+            ) :
+            expandedReferences[index].find(({ _id }) => _id === item[refId]),
+        }), item)
+      ))
+    ));
+  }
+
+  return Promise.all(
+    refs.map(({ refId }) => {
+      const refConfig = refsConfig.find(({ refId: _refId }) => _refId === refId);
+      if (Array.isArray(result[refId])) {
+        return dispatch(`entity.${refConfig.refEntity}.findMany`, {
+          query: {
+            _id: {
+              $in: result[refId],
+            },
+          },
+        }).then((c) => c.toArray());
+      }
+
+      return dispatch(`entity.${refConfig.refEntity}.findById`, result[refId]);
+    })
+  ).then((expandedReferences) => (
+    refs.reduce((acc, { as }, index) => ({
+      ...acc,
+      [as]: expandedReferences[index],
+    }), result)
+  ));
+};

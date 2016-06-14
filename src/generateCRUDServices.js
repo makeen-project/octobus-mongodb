@@ -1,7 +1,7 @@
 import Joi from 'joi';
 import { doFindOne, doSave, doRemove, doUpdate } from './db';
 import {
-  paramsToCursor, extractCollectionName, addTimestamps, addTimestampToUpdate,
+  paramsToCursor, extractCollectionName, addTimestamps, addTimestampToUpdate, expand,
 } from './utils';
 
 export default (namespace, _options = {}) => {
@@ -32,20 +32,36 @@ export default (namespace, _options = {}) => {
       return params(getCollection(), db);
     },
 
-    find({ params }) {
-      return paramsToCursor(getCollection(), params);
-    },
-
-    findOne({ params }) {
-      return doFindOne(getCollection(), params);
-    },
-
     findById({ params }) {
       return doFindOne(getCollection(), { _id: params });
     },
 
-    create({ dispatch, params }) {
+    findOne({ params, dispatch }) {
+      return doFindOne(getCollection(), params).then((result) => (
+        expand(dispatch, result, params.expand, options.references)
+      ));
+    },
+
+    findMany({ params, dispatch }) {
+      const cursor = paramsToCursor(getCollection(), params);
+
+      if (!params || !params.expand) {
+        return cursor;
+      }
+
+      return cursor.toArray().then((result) => (
+        expand(dispatch, result, params.expand, options.references)
+      ));
+    },
+
+    createOne({ dispatch, params }) {
       return dispatch(`${namespace}.save`, params);
+    },
+
+    createMany({ dispatch, params }) {
+      return Promise.all(
+        params.map((item) => dispatch(`${namespace}.save`, item))
+      );
     },
 
     updateOne({ params }) {
