@@ -346,7 +346,7 @@ describe('generateCRUDServices', () => {
     ));
 
     it('should expand an array of references', () => (
-      dispatcher.dispatch('entity.Product.createOne',
+      dispatcher.dispatch('entity.Product.createMany',
         _.range(1, 5).map((id) => ({
           name: `product${id}`,
         }))
