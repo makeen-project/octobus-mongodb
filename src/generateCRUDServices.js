@@ -109,10 +109,6 @@ export default (namespace, _options = {}) => {
         return params;
       }
 
-      if (Array.isArray(params)) {
-        return params.map((item) => map.validate({ params: item }));
-      }
-
       return Joi.attempt(params, schema, {
         convert: true,
         stripUnknown: true,
