@@ -32,7 +32,17 @@ export default (namespace, _options = {}) => {
       return params(getCollection(), db);
     },
 
-    find({ params, dispatch }) {
+    findById({ params }) {
+      return doFindOne(getCollection(), { _id: params });
+    },
+
+    findOne({ params, dispatch }) {
+      return doFindOne(getCollection(), params).then((result) => (
+        expand(dispatch, result, params.expand, options.references)
+      ));
+    },
+
+    findMany({ params, dispatch }) {
       const cursor = paramsToCursor(getCollection(), params);
 
       if (!params || !params.expand) {
@@ -44,18 +54,14 @@ export default (namespace, _options = {}) => {
       ));
     },
 
-    findOne({ params, dispatch }) {
-      return doFindOne(getCollection(), params).then((result) => (
-        expand(dispatch, result, params.expand, options.references)
-      ));
-    },
-
-    findById({ params }) {
-      return doFindOne(getCollection(), { _id: params });
-    },
-
-    create({ dispatch, params }) {
+    createOne({ dispatch, params }) {
       return dispatch(`${namespace}.save`, params);
+    },
+
+    createMany({ dispatch, params }) {
+      return Promise.all(
+        params.map((item) => dispatch(`${namespace}.save`, item))
+      );
     },
 
     updateOne({ params }) {
@@ -84,13 +90,7 @@ export default (namespace, _options = {}) => {
       const data = await dispatch(`${namespace}.validate`, params);
 
       if (options.timestamps.generate) {
-        if (Array.isArray(data)) {
-          data.forEach((item) => {
-            addTimestamps(item, options.timestamps);
-          });
-        } else {
-          addTimestamps(data, options.timestamps);
-        }
+        addTimestamps(data, options.timestamps);
       }
 
       return await doSave(getCollection(), data);

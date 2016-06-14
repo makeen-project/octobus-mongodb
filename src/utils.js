@@ -83,7 +83,7 @@ export const expand = (dispatch, result, refs = [], refsConfig) => {
     return Promise.all(
       refs.map(({ refId }) => {
         const refConfig = refsConfig.find(({ refId: _refId }) => _refId === refId);
-        return dispatch(`entity.${refConfig.refEntity}.find`, {
+        return dispatch(`entity.${refConfig.refEntity}.findMany`, {
           query: {
             _id: {
               $in: refsMap[refId],
@@ -109,7 +109,7 @@ export const expand = (dispatch, result, refs = [], refsConfig) => {
     refs.map(({ refId }) => {
       const refConfig = refsConfig.find(({ refId: _refId }) => _refId === refId);
       if (Array.isArray(result[refId])) {
-        return dispatch(`entity.${refConfig.refEntity}.find`, {
+        return dispatch(`entity.${refConfig.refEntity}.findMany`, {
           query: {
             _id: {
               $in: result[refId],

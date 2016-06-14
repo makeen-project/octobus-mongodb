@@ -87,9 +87,9 @@ describe('generateCRUDServices', () => {
   it('should call the create hooks', () => {
     const before = sinon.spy();
     const after = sinon.spy();
-    dispatcher.onBefore('entity.User.create', before);
-    dispatcher.onAfter('entity.User.create', after);
-    return dispatcher.dispatch('entity.User.create', {
+    dispatcher.onBefore('entity.User.createOne', before);
+    dispatcher.onAfter('entity.User.createOne', after);
+    return dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then(() => {
@@ -99,7 +99,7 @@ describe('generateCRUDServices', () => {
   });
 
   it('should create a new record', () => (
-    dispatcher.dispatch('entity.User.create', {
+    dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((result) => {
@@ -110,7 +110,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should create an array of records', () => (
-    dispatcher.dispatch('entity.User.create', [{
+    dispatcher.dispatch('entity.User.createMany', [{
       firstName: 'John1',
       lastName: 'Doe1',
     }, {
@@ -128,7 +128,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should find an existing record by id', () => (
-    dispatcher.dispatch('entity.User.create', {
+    dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((createdUser) => {
@@ -142,7 +142,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should find one record', () => (
-    dispatcher.dispatch('entity.User.create', {
+    dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((createdUser) => (
@@ -156,7 +156,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should find multiple records', () => (
-    dispatcher.dispatch('entity.User.create', [{
+    dispatcher.dispatch('entity.User.createMany', [{
       firstName: 'John1',
       lastName: 'Doe1',
     }, {
@@ -166,7 +166,7 @@ describe('generateCRUDServices', () => {
       firstName: 'John3',
       lastName: 'Doe3',
     }]).then(() => (
-      dispatcher.dispatch('entity.User.find').then((cursor) => (
+      dispatcher.dispatch('entity.User.findMany').then((cursor) => (
         cursor.toArray().then((results) => {
           expect(results).to.have.lengthOf(3);
           expect(results[0].lastName).to.equal('Doe1');
@@ -178,7 +178,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should replace an existing record', () => (
-    dispatcher.dispatch('entity.User.create', {
+    dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((createdUser) => (
@@ -193,7 +193,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should update a single record', () => (
-    dispatcher.dispatch('entity.User.create', {
+    dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((createdUser) => (
@@ -217,7 +217,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should update multiple records', () => (
-    dispatcher.dispatch('entity.User.create', [{
+    dispatcher.dispatch('entity.User.createMany', [{
       firstName: 'John1',
       lastName: 'Doe1',
       role: 'admin',
@@ -240,7 +240,7 @@ describe('generateCRUDServices', () => {
           },
         },
       }).then(() => (
-        dispatcher.dispatch('entity.User.find').then((cursor) => (
+        dispatcher.dispatch('entity.User.findMany').then((cursor) => (
           cursor.toArray().then((users) => {
             const superAdmins = users.filter(({ role }) => role === 'superAdmin');
             const superUsers = users.filter(({ role }) => role === 'superUser');
@@ -253,7 +253,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should remove an existing record', () => (
-    dispatcher.dispatch('entity.User.create', {
+    dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((createdUser) => (
@@ -273,7 +273,7 @@ describe('generateCRUDServices', () => {
     dispatcher.onBefore('entity.User.save', before);
     dispatcher.onAfter('entity.User.save', after);
 
-    const promise = dispatcher.dispatch('entity.User.create', {
+    const promise = dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     });
@@ -287,7 +287,7 @@ describe('generateCRUDServices', () => {
 
   it('should generate timestamps', () => {
     const now = Date.now();
-    return dispatcher.dispatch('entity.User.create', {
+    return dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((createdUser) => {
@@ -324,10 +324,10 @@ describe('generateCRUDServices', () => {
 
   describe('expanding references', () => {
     it('should expand a single reference', () => (
-      dispatcher.dispatch('entity.Category.create', {
+      dispatcher.dispatch('entity.Category.createOne', {
         name: 'Laptops',
       }).then((category) => (
-        dispatcher.dispatch('entity.Product.create', {
+        dispatcher.dispatch('entity.Product.createOne', {
           name: 'MacBook Pro',
           categoryId: category._id,
         }).then(({ _id }) => (
@@ -346,12 +346,12 @@ describe('generateCRUDServices', () => {
     ));
 
     it('should expand an array of references', () => (
-      dispatcher.dispatch('entity.Product.create',
+      dispatcher.dispatch('entity.Product.createOne',
         _.range(1, 5).map((id) => ({
           name: `product${id}`,
         }))
       ).then((products) => (
-        dispatcher.dispatch('entity.Category.create', {
+        dispatcher.dispatch('entity.Category.createOne', {
           name: 'category1',
           productIds: products.map(({ _id }) => _id),
         }).then(({ _id }) => (
