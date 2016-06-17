@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { doFindOne, doSave, doRemove, doUpdate } from './db';
+import { doFindOne, doSave, doRemove, doUpdate, doCount } from './db';
 import {
   paramsToCursor, extractCollectionName, addTimestamps, addTimestampToUpdate, expand,
 } from './utils';
@@ -102,6 +102,10 @@ export default (namespace, _options = {}) => {
 
     removeMany({ params }) {
       return doRemove(getCollection(), params, false);
+    },
+
+    count({ params }) {
+      return doCount(getCollection(), params);
     },
 
     validate({ params }) {

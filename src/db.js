@@ -31,25 +31,30 @@ export const doRemove = (collection, params, one = true) => {
     return collection.deleteOne({ _id: params });
   }
 
-  const { filter, options: filterOptions } = {
-    filter: {},
+  const { query, options: filterOptions } = {
+    query: {},
     options: {},
     ...params,
   };
 
   const method = one ? 'deleteOne' : 'deleteMany';
 
-  return collection[method](filter, filterOptions);
+  return collection[method](query, filterOptions);
 };
 
 export const doUpdate = (collection, params, one = true) => {
-  const { filter, update, options: updateOptions } = {
-    filter: {},
+  const { query, update, options: updateOptions } = {
+    query: {},
     options: {},
     ...params,
   };
 
   const method = one ? 'updateOne' : 'updateMany';
 
-  return collection[method](filter, update, updateOptions);
+  return collection[method](query, update, updateOptions);
+};
+
+export const doCount = (collection, params) => {
+  const { query, options } = params;
+  return collection.count(query || {}, options || {});
 };

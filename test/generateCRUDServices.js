@@ -198,7 +198,7 @@ describe('generateCRUDServices', () => {
       lastName: 'Doe',
     }).then((createdUser) => (
       dispatcher.dispatch('entity.User.updateOne', {
-        filter: {
+        query: {
           _id: createdUser._id,
         },
         update: {
@@ -231,7 +231,7 @@ describe('generateCRUDServices', () => {
       role: 'admin',
     }]).then(() => (
       dispatcher.dispatch('entity.User.updateMany', {
-        filter: {
+        query: {
           role: 'admin',
         },
         update: {
@@ -304,7 +304,7 @@ describe('generateCRUDServices', () => {
         expect(updatedAt.getTime()).to.be.above(createdAt.getTime());
 
         return dispatcher.dispatch('entity.User.updateOne', {
-          filter: {
+          query: {
             _id: createdUser._id,
           },
           update: {
@@ -369,4 +369,28 @@ describe('generateCRUDServices', () => {
       ))
     ));
   });
+
+  it('should count the records', () => (
+    dispatcher.dispatch('entity.User.createMany', [{
+      firstName: 'John1',
+      lastName: 'Doe1',
+      role: 'admin',
+    }, {
+      firstName: 'John2',
+      lastName: 'Doe2',
+      role: 'superUser',
+    }, {
+      firstName: 'John3',
+      lastName: 'Doe3',
+      role: 'admin',
+    }]).then(() => (
+      dispatcher.dispatch('entity.User.count', {
+        query: {
+          role: 'admin',
+        },
+      }).then((result) => {
+        expect(result).to.equal(2);
+      })
+    ))
+  ));
 });
