@@ -33,7 +33,8 @@ export default (namespace, _options = {}) => {
     },
 
     findById({ params }) {
-      return doFindOne(getCollection(), { _id: params });
+      const _id = params;
+      return doFindOne(getCollection(), { query: { _id } });
     },
 
     findOne({ params, dispatch }) {

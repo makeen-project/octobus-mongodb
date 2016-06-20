@@ -141,6 +141,15 @@ describe('generateCRUDServices', () => {
     })
   ));
 
+  it('should return null when trying to find an unexisting record by id', () => (
+    dispatcher.dispatch('entity.User.findById', '__none__')
+      .then(
+        (result) => {
+          expect(result).to.be.null();
+        }
+      )
+  ));
+
   it('should find one record', () => (
     dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
