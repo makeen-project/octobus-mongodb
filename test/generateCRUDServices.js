@@ -28,12 +28,16 @@ const categorySchema = {
   _id: Joi.object(),
   name: Joi.string().required(),
   productIds: Joi.array(),
+  createdAt: Joi.date(),
+  updatedAt: Joi.date(),
 };
 
 const productSchema = {
   _id: Joi.object(),
   name: Joi.string().required(),
   categoryId: Joi.object(),
+  createdAt: Joi.date(),
+  updatedAt: Joi.date(),
 };
 
 describe('generateCRUDServices', () => {
@@ -49,29 +53,37 @@ describe('generateCRUDServices', () => {
   beforeEach(() => {
     dispatcher = createEventDispatcher();
 
-    dispatcher.subscribeMap('entity.User', generateCRUDServices('entity.User', {
+    dispatcher.subscribeMap('entity.User', generateCRUDServices(dispatcher, 'entity.User', {
       db,
       schema: userSchema,
       collectionName: 'User',
     }));
 
-    dispatcher.subscribeMap('entity.Category', generateCRUDServices('entity.Category', {
+    dispatcher.subscribeMap('entity.Category', generateCRUDServices(dispatcher, 'entity.Category', {
       db,
       schema: categorySchema,
       collectionName: 'Category',
       references: [{
         refId: 'productIds',
         refEntity: 'Product',
+        cache: {
+          under: 'products',
+          properties: ['name'],
+        },
       }],
     }));
 
-    dispatcher.subscribeMap('entity.Product', generateCRUDServices('entity.Product', {
+    dispatcher.subscribeMap('entity.Product', generateCRUDServices(dispatcher, 'entity.Product', {
       db,
       schema: productSchema,
       collectionName: 'Product',
       references: [{
         refId: 'categoryId',
         refEntity: 'Category',
+        cache: {
+          under: 'category',
+          properties: ['name'],
+        },
       }],
     }));
   });
@@ -374,6 +386,103 @@ describe('generateCRUDServices', () => {
             expect(category.products).to.exist();
             expect(category.products).to.have.a.lengthOf(4);
           })
+        ))
+      ))
+    ));
+  });
+
+  describe('caching references', () => {
+    it('should cache a single references', () => (
+      dispatcher.dispatch('entity.Category.createOne', {
+        name: 'Laptops',
+      }).then((category) => (
+        dispatcher.dispatch('entity.Product.createOne', {
+          name: 'MacBook Pro',
+          categoryId: category._id,
+        }).then(({ _id }) => (
+          dispatcher.dispatch('entity.Product.findOne', {
+            query: { _id },
+          }).then((product) => {
+            expect(product.category).to.exist();
+            expect(product.category._id).to.not.exist();
+            expect(product.category.name).to.equal('Laptops');
+          })
+        ))
+      ))
+    ));
+
+    it('should cache an array of references', () => (
+      dispatcher.dispatch('entity.Product.createMany',
+        _.range(1, 5).map((id) => ({
+          name: `product${id}`,
+        }))
+      ).then((products) => (
+        dispatcher.dispatch('entity.Category.createOne', {
+          name: 'category1',
+          productIds: products.map(({ _id }) => _id),
+        }).then(({ _id }) => (
+          dispatcher.dispatch('entity.Category.findOne', {
+            query: { _id },
+          }).then((category) => {
+            expect(category.products).to.exist();
+            expect(category.products).to.have.a.lengthOf(4);
+          })
+        ))
+      ))
+    ));
+
+    it('should update the cache when the reference gets updated', () => (
+      dispatcher.dispatch('entity.Category.createOne', {
+        name: 'Laptops',
+      }).then((category) => (
+        dispatcher.dispatch('entity.Product.createOne', {
+          name: 'MacBook Pro',
+          categoryId: category._id,
+        }).then(({ _id }) => (
+          dispatcher.dispatch('entity.Category.replaceOne', {
+            ...category,
+            name: 'Apple Products',
+          }).then(() => (
+            dispatcher.dispatch('entity.Product.findOne', {
+              query: { _id },
+            }).then((product) => {
+              expect(product.category).to.exist();
+              expect(product.category._id).to.not.exist();
+              expect(product.category.name).to.equal('Apple Products');
+            })
+          ))
+        ))
+      ))
+    ));
+
+    it('should cache update ref cache', () => (
+      dispatcher.dispatch('entity.Category.createOne', {
+        name: 'Laptops',
+      }).then((category) => (
+        dispatcher.dispatch('entity.Product.createOne', {
+          name: 'MacBook Pro',
+          categoryId: category._id,
+        }).then(({ _id }) => (
+          dispatcher.dispatch('entity.Category.updateOne', {
+            query: {
+              _id: category._id,
+            },
+            update: {
+              $set: {
+                name: 'Apple Products',
+              },
+            },
+          }).then(() => (
+            dispatcher.dispatch('entity.Product.updateRefCache', () => (
+              dispatcher.dispatch('entity.Product.findOne', {
+                query: { _id },
+              }).then((product) => {
+                expect(product.category).to.exist();
+                expect(product.category._id).to.not.exist();
+                expect(product.category.name).to.equal('Apple Products');
+              })
+            ))
+          ))
         ))
       ))
     ));

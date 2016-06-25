@@ -1,10 +1,18 @@
 import Joi from 'joi';
 import { doFindOne, doSave, doRemove, doUpdate, doCount } from './db';
 import {
-  paramsToCursor, extractCollectionName, addTimestamps, addTimestampToUpdate, expand,
+  paramsToCursor,
+  extractCollectionName,
+  addTimestamps,
+  addTimestampToUpdate,
+  expand,
 } from './utils';
+import {
+  hasRefCachePointers,
+  generateRefCache,
+} from './refCache';
 
-export default (namespace, _options = {}) => {
+export default (dispatcher, namespace, _options = {}) => {
   const options = Joi.attempt(_options, {
     collectionName: Joi.string().default(extractCollectionName(namespace)),
     db: Joi.required(),
@@ -21,11 +29,40 @@ export default (namespace, _options = {}) => {
     references: Joi.array().items(Joi.object().keys({
       refId: Joi.any().required(),
       refEntity: Joi.string().required(),
+      cache: Joi.object().keys({
+        under: Joi.string().required(),
+        properties: [
+          Joi.array().items(Joi.string()),
+        ],
+      }).default({}),
     })).default([]),
   });
 
-  const { collectionName, db, schema } = options;
+  const { collectionName, db, schema, references } = options;
   const getCollection = () => db.collection(collectionName);
+
+  const shouldCacheReferences = hasRefCachePointers(options.references);
+
+  references.forEach((refConfig) => {
+    dispatcher.onAfter(`entity.${refConfig.refEntity}.replaceOne`, (result) => {
+      dispatcher.dispatch(`${namespace}.updateOne`, {
+        query: {
+          [refConfig.refId]: result._id,
+        },
+        update: {
+          $set: {
+            [refConfig.cache.under]: refConfig.cache.properties.reduce(
+              (acc, property) => ({
+                ...acc,
+                [property]: result[property],
+              }),
+              {},
+            ),
+          },
+        },
+      });
+    });
+  });
 
   const map = {
     query({ params }) {
@@ -39,7 +76,7 @@ export default (namespace, _options = {}) => {
 
     findOne({ params, dispatch }) {
       return doFindOne(getCollection(), params).then((result) => (
-        expand(dispatch, result, params.expand, options.references)
+        expand(dispatch, result, params.expand, references)
       ));
     },
 
@@ -51,7 +88,7 @@ export default (namespace, _options = {}) => {
       }
 
       return cursor.toArray().then((result) => (
-        expand(dispatch, result, params.expand, options.references)
+        expand(dispatch, result, params.expand, references)
       ));
     },
 
@@ -94,6 +131,11 @@ export default (namespace, _options = {}) => {
         addTimestamps(data, options.timestamps);
       }
 
+      if (shouldCacheReferences) {
+        const refCache = await generateRefCache({ dispatch, references, data });
+        Object.assign(data, refCache);
+      }
+
       return await doSave(getCollection(), data);
     },
 
@@ -117,6 +159,43 @@ export default (namespace, _options = {}) => {
       return Joi.attempt(params, schema, {
         convert: true,
         stripUnknown: true,
+      });
+    },
+
+    async updateRefCache({ params, dispatch }) {
+      const { query, entities } = {
+        query: {},
+        entities: [],
+        ...params,
+      };
+
+      let selectedReferences = references;
+
+      if (entities.length) {
+        selectedReferences = references.filter(({ refEntity }) => entities.includes(refEntity));
+      }
+
+      const cursor = await getCollection().find(query);
+      const items = await cursor.toArray();
+      const refCaches = await Promise.all(
+        items.map((data) => generateRefCache({ dispatch, references: selectedReferences, data }))
+      );
+
+      const bulk = getCollection().initializeUnorderedBulkOp();
+      items.forEach((item, index) => {
+        bulk.find({ _id: item._id }).updateOne({
+          $set: refCaches[index],
+        });
+      });
+
+      return new Promise((resolve, reject) => {
+        bulk.execute((err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        });
       });
     },
   };
