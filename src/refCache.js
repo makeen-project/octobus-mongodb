@@ -1,3 +1,5 @@
+import { has } from 'lodash';
+
 export const hasRefCachePointers = (references) => (
   Array.isArray(references) && references.some(({ cache }) => Object.keys(cache).length)
 );
@@ -28,6 +30,12 @@ const reduceRefData = (cacheProperties, refData) => (
     }),
     {},
   )
+);
+
+export const shouldGenerateRefCache = (data, references) => (
+  references.some(({ refId, cache }) => (
+    data[refId] && !has(data, cache.under)
+  ))
 );
 
 export const generateRefCache = ({ dispatch, references, data }) => {

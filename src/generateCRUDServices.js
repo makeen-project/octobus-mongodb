@@ -13,6 +13,7 @@ import {
   generateRefCache,
   updateRefCache,
   addReplaceListener,
+  shouldGenerateRefCache,
 } from './refCache';
 
 export default (dispatcher, namespace, _options = {}) => {
@@ -119,7 +120,7 @@ export default (dispatcher, namespace, _options = {}) => {
         addTimestamps(data, options.timestamps);
       }
 
-      if (shouldCacheReferences) {
+      if (shouldCacheReferences && shouldGenerateRefCache(data, references)) {
         const refCache = await generateRefCache({ dispatch, references, data });
         Object.keys(refCache).forEach((key) => {
           set(data, key, refCache[key]);
