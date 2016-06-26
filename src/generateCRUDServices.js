@@ -11,6 +11,7 @@ import {
   hasRefCachePointers,
   generateRefCache,
   updateRefCache,
+  addReplaceListener,
 } from './refCache';
 
 export default (dispatcher, namespace, _options = {}) => {
@@ -44,25 +45,10 @@ export default (dispatcher, namespace, _options = {}) => {
 
   const shouldCacheReferences = hasRefCachePointers(options.references);
 
-  references.forEach((refConfig) => {
-    dispatcher.onAfter(`entity.${refConfig.refEntity}.replaceOne`, (result) => {
-      dispatcher.dispatch(`${namespace}.updateOne`, {
-        query: {
-          [refConfig.refId]: result._id,
-        },
-        update: {
-          $set: {
-            [refConfig.cache.under]: refConfig.cache.properties.reduce(
-              (acc, property) => ({
-                ...acc,
-                [property]: result[property],
-              }),
-              {},
-            ),
-          },
-        },
-      });
-    });
+  addReplaceListener({
+    dispatcher,
+    references,
+    namespace,
   });
 
   const map = {
