@@ -1,4 +1,5 @@
 import Joi from 'joi';
+import { set } from 'lodash';
 import { doFindOne, doSave, doRemove, doUpdate, doCount } from './db';
 import {
   paramsToCursor,
@@ -120,7 +121,9 @@ export default (dispatcher, namespace, _options = {}) => {
 
       if (shouldCacheReferences) {
         const refCache = await generateRefCache({ dispatch, references, data });
-        Object.assign(data, refCache);
+        Object.keys(refCache).forEach((key) => {
+          set(data, key, refCache[key]);
+        });
       }
 
       return await doSave(getCollection(), data);

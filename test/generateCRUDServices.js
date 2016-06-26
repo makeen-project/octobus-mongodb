@@ -81,7 +81,7 @@ describe('generateCRUDServices', () => {
         refId: 'categoryId',
         refEntity: 'Category',
         cache: {
-          under: 'category',
+          under: 'cache.category',
           properties: ['name'],
         },
       }],
@@ -403,9 +403,10 @@ describe('generateCRUDServices', () => {
           dispatcher.dispatch('entity.Product.findOne', {
             query: { _id },
           }).then((product) => {
-            expect(product.category).to.exist();
-            expect(product.category._id).to.not.exist();
-            expect(product.category.name).to.equal('Laptops');
+            expect(product.cache).to.exist();
+            expect(product.cache.category).to.exist();
+            expect(product.cache.category._id).to.not.exist();
+            expect(product.cache.category.name).to.equal('Laptops');
           })
         ))
       ))
@@ -446,9 +447,9 @@ describe('generateCRUDServices', () => {
             dispatcher.dispatch('entity.Product.findOne', {
               query: { _id },
             }).then((product) => {
-              expect(product.category).to.exist();
-              expect(product.category._id).to.not.exist();
-              expect(product.category.name).to.equal('Apple Products');
+              expect(product.cache.category).to.exist();
+              expect(product.cache.category._id).to.not.exist();
+              expect(product.cache.category.name).to.equal('Apple Products');
             })
           ))
         ))
@@ -477,9 +478,9 @@ describe('generateCRUDServices', () => {
               dispatcher.dispatch('entity.Product.findOne', {
                 query: { _id },
               }).then((product) => {
-                expect(product.category).to.exist();
-                expect(product.category._id).to.not.exist();
-                expect(product.category.name).to.equal('Apple Products');
+                expect(product.cache.category).to.exist();
+                expect(product.cache.category._id).to.not.exist();
+                expect(product.cache.category.name).to.equal('Apple Products');
               })
             ))
           ))
