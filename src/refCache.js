@@ -51,3 +51,26 @@ export const generateRefCache = ({ dispatch, references, data }) => {
     }), {})
   ));
 };
+
+export const updateRefCache = async ({ dispatch, items, references, collection }) => {
+  const refCaches = await Promise.all(
+    items.map((data) => generateRefCache({ dispatch, references, data }))
+  );
+
+  const bulk = collection.initializeUnorderedBulkOp();
+  items.forEach((item, index) => {
+    bulk.find({ _id: item._id }).updateOne({
+      $set: refCaches[index],
+    });
+  });
+
+  return new Promise((resolve, reject) => {
+    bulk.execute((err, result) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(result);
+      }
+    });
+  });
+};

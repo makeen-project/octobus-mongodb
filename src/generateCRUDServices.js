@@ -10,6 +10,7 @@ import {
 import {
   hasRefCachePointers,
   generateRefCache,
+  updateRefCache,
 } from './refCache';
 
 export default (dispatcher, namespace, _options = {}) => {
@@ -177,25 +178,12 @@ export default (dispatcher, namespace, _options = {}) => {
 
       const cursor = await getCollection().find(query);
       const items = await cursor.toArray();
-      const refCaches = await Promise.all(
-        items.map((data) => generateRefCache({ dispatch, references: selectedReferences, data }))
-      );
 
-      const bulk = getCollection().initializeUnorderedBulkOp();
-      items.forEach((item, index) => {
-        bulk.find({ _id: item._id }).updateOne({
-          $set: refCaches[index],
-        });
-      });
-
-      return new Promise((resolve, reject) => {
-        bulk.execute((err, result) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(result);
-          }
-        });
+      return updateRefCache({
+        dispatch,
+        items,
+        references: selectedReferences,
+        collection: getCollection(),
       });
     },
   };
