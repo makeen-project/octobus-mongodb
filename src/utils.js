@@ -3,10 +3,11 @@ import _ from 'lodash';
 export const paramsToCursor = (collection, params = {}) => {
   const { query, orderBy, limit, skip } = {
     query: {},
+    fields: {},
     ...params,
   };
 
-  let fields = params.fields || {};
+  let { fields } = params;
 
   if (Array.isArray(fields)) {
     fields = fields.reduce((acc, field) => ({

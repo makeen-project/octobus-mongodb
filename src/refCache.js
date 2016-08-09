@@ -85,7 +85,7 @@ export const updateRefCache = async ({ dispatch, items, references, collection }
 
 export const addReplaceListener = ({ dispatcher, references, namespace }) => {
   references.forEach((refConfig) => {
-    dispatcher.onAfter(`entity.${refConfig.refEntity}.replaceOne`, (result) => {
+    dispatcher.onAfter(`entity.${refConfig.refEntity}.replaceOne`, ({ result }) => {
       dispatcher.dispatch(`${namespace}.updateOne`, {
         query: {
           [refConfig.refId]: result._id,
