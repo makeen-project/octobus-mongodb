@@ -58,3 +58,8 @@ export const doCount = (collection, params) => {
   const { query, options } = params;
   return collection.count(query || {}, options || {});
 };
+
+export const doAggregate = (collection, params) => {
+  const { pipeline, options } = params;
+  return collection.aggregate(pipeline, options);
+};

@@ -1,6 +1,6 @@
 import Joi from 'joi';
 import { set } from 'lodash';
-import { doFindOne, doSave, doRemove, doUpdate, doCount } from './db';
+import { doFindOne, doSave, doRemove, doUpdate, doCount, doAggregate } from './db';
 import {
   paramsToCursor,
   extractCollectionName,
@@ -140,6 +140,10 @@ export default (dispatcher, namespace, _options = {}) => {
 
     count({ params }) {
       return doCount(getCollection(), params);
+    },
+
+    aggregate({ params }) {
+      return doAggregate(getCollection(), params);
     },
 
     validate({ params }) {
