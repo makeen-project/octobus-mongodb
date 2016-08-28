@@ -1,7 +1,7 @@
 import { ObjectID as objectId } from 'mongodb';
 import _ from 'lodash';
 
-export const doFindOne = (collection, params) => {
+export const findOne = (collection, params) => {
   const { query, options: queryOptions } = {
     query: {},
     options: {},
@@ -11,7 +11,7 @@ export const doFindOne = (collection, params) => {
   return collection.findOne(query, queryOptions);
 };
 
-export const doInsert = (collection, data) => (
+export const insert = (collection, data) => (
   Array.isArray(data) ?
     collection.insertMany(data).then((result) => result.ops) :
     collection.insertOne(data).then((result) => result.ops[0])
@@ -21,12 +21,22 @@ export const doReplace = (collection, _id, data) => (
   collection.replaceOne({ _id }, data).then((result) => ({ _id, ...result.ops[0] }))
 );
 
-export const doSave = (collection, data) => (
+export const save = (collection, data) => (
   data._id ? doReplace(collection, data._id, _.omit(data, '_id')) :
-  doInsert(collection, data)
+  insert(collection, data)
 );
 
-export const doRemove = (collection, params, one = true) => {
+export const deleteMany = (collection, params) => {
+  const { query, options: filterOptions } = {
+    query: {},
+    options: {},
+    ...params,
+  };
+
+  return collection.deleteMany(query, filterOptions);
+};
+
+export const deleteOne = (collection, params) => {
   if (params instanceof objectId) {
     return collection.deleteOne({ _id: params });
   }
@@ -37,29 +47,35 @@ export const doRemove = (collection, params, one = true) => {
     ...params,
   };
 
-  const method = one ? 'deleteOne' : 'deleteMany';
-
-  return collection[method](query, filterOptions);
+  return collection.deleteOne(query, filterOptions);
 };
 
-export const doUpdate = (collection, params, one = true) => {
-  const { query, update, options: updateOptions } = {
+export const updateMany = (collection, params) => {
+  const { query, update: updatePayload, options: updateOptions } = {
     query: {},
     options: {},
     ...params,
   };
 
-  const method = one ? 'updateOne' : 'updateMany';
-
-  return collection[method](query, update, updateOptions);
+  return collection.updateMany(query, updatePayload, updateOptions);
 };
 
-export const doCount = (collection, params) => {
+export const updateOne = (collection, params) => {
+  const { query, update: updatePayload, options: updateOptions } = {
+    query: {},
+    options: {},
+    ...params,
+  };
+
+  return collection.updateOne(query, updatePayload, updateOptions);
+};
+
+export const count = (collection, params) => {
   const { query, options } = params;
   return collection.count(query || {}, options || {});
 };
 
-export const doAggregate = (collection, params) => {
+export const aggregate = (collection, params) => {
   const { pipeline, options } = params;
   return collection.aggregate(pipeline, options);
 };

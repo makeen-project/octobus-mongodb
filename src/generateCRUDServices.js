@@ -1,6 +1,6 @@
 import Joi from 'joi';
 import { set } from 'lodash';
-import { doFindOne, doSave, doRemove, doUpdate, doCount, doAggregate } from './db';
+import * as dbQuery from './db';
 import {
   paramsToCursor,
   extractCollectionName,
@@ -60,11 +60,11 @@ export default (dispatcher, namespace, _options = {}) => {
 
     findById({ params }) {
       const _id = params;
-      return doFindOne(getCollection(), { query: { _id } });
+      return dbQuery.findOne(getCollection(), { query: { _id } });
     },
 
     findOne({ params, dispatch }) {
-      return doFindOne(getCollection(), params).then((result) => (
+      return dbQuery.findOne(getCollection(), params).then((result) => (
         expand(dispatch, result, params.expand, references)
       ));
     },
@@ -92,17 +92,17 @@ export default (dispatcher, namespace, _options = {}) => {
     },
 
     updateOne({ params }) {
-      return doUpdate(getCollection(), {
+      return dbQuery.updateOne(getCollection(), {
         ...params,
         update: addTimestampToUpdate(params.update, options.timestamps),
       });
     },
 
     updateMany({ params }) {
-      return doUpdate(getCollection(), {
+      return dbQuery.updateMany(getCollection(), {
         ...params,
         update: addTimestampToUpdate(params.update, options.timestamps),
-      }, false);
+      });
     },
 
     replaceOne({ dispatch, params }) {
@@ -127,23 +127,23 @@ export default (dispatcher, namespace, _options = {}) => {
         });
       }
 
-      return await doSave(getCollection(), data);
+      return await dbQuery.save(getCollection(), data);
     },
 
     removeOne({ params }) {
-      return doRemove(getCollection(), params);
+      return dbQuery.deleteOne(getCollection(), params);
     },
 
     removeMany({ params }) {
-      return doRemove(getCollection(), params, false);
+      return dbQuery.deleteMany(getCollection(), params);
     },
 
     count({ params }) {
-      return doCount(getCollection(), params);
+      return dbQuery.count(getCollection(), params);
     },
 
     aggregate({ params }) {
-      return doAggregate(getCollection(), params);
+      return dbQuery.aggregate(getCollection(), params);
     },
 
     validate({ params }) {
