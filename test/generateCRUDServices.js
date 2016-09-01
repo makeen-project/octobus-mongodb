@@ -2,7 +2,7 @@ import _ from 'lodash';
 import Joi from 'joi';
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { createEventDispatcher } from 'octobus.js';
+import Octobus from 'octobus.js';
 import { generateCRUDServices } from '../src';
 import { MongoClient } from 'mongodb';
 
@@ -51,7 +51,7 @@ describe('generateCRUDServices', () => {
   ));
 
   beforeEach(() => {
-    dispatcher = createEventDispatcher();
+    dispatcher = new Octobus();
 
     dispatcher.subscribeMap('entity.User', generateCRUDServices(dispatcher, 'entity.User', {
       db,

@@ -1,6 +1,6 @@
 {
   "name": "octobus-mongodb",
-  "version": "0.6.9",
+  "version": "0.7.0",
   "description": "A MongoDB CRUD generator that will use octobus.js to create the needed services.",
   "main": "dist/index.js",
   "scripts": {
@@ -55,7 +55,7 @@
     "eslint-config-airbnb": "^6.1.0",
     "eslint-plugin-react": "^4.2.0",
     "mocha": "^2.4.5",
-    "octobus.js": "0.14.8",
+    "octobus.js": "0.15.0",
     "rimraf": "2.5.2",
     "semantic-release": "^4.3.5",
     "sinon": "^1.17.3",
