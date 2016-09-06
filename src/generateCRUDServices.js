@@ -1,8 +1,6 @@
 import Joi from 'joi';
 import { set } from 'lodash';
-import * as dbQuery from './db';
 import {
-  paramsToCursor,
   extractCollectionName,
   addTimestamps,
   addTimestampToUpdate,
@@ -15,10 +13,12 @@ import {
   addReplaceListener,
   shouldGenerateRefCache,
 } from './refCache';
+import Store from './Store';
 
-export default (dispatcher, namespace, _options = {}) => {
-  const options = Joi.attempt(_options, {
+export default (dispatcher, namespace, options = {}) => {
+  const parsedOptions = Joi.attempt(options, {
     collectionName: Joi.string().default(extractCollectionName(namespace)),
+    store: Joi.object().type(Store),
     db: Joi.required(),
     schema: Joi.object(),
     timestamps: Joi.object().keys({
@@ -42,10 +42,15 @@ export default (dispatcher, namespace, _options = {}) => {
     })).default([]),
   });
 
-  const { collectionName, db, schema, references } = options;
-  const getCollection = () => db.collection(collectionName);
+  const { collectionName, db, schema, references, timestamps } = parsedOptions;
 
-  const shouldCacheReferences = hasRefCachePointers(options.references);
+  const store = parsedOptions.store || new Proxy(new Store(db.collection(collectionName)), {
+    get(target, method) {
+      return method in target ? target[method] : target.getCollection()[method];
+    },
+  });
+
+  const shouldCacheReferences = hasRefCachePointers(references);
 
   addReplaceListener({
     dispatcher,
@@ -54,23 +59,22 @@ export default (dispatcher, namespace, _options = {}) => {
   });
 
   const map = {
-    query({ params }) {
-      return params(getCollection(), db);
+    query({ params: cb }) {
+      return cb(store, db);
     },
 
-    findById({ params }) {
-      const _id = params;
-      return dbQuery.findOne(getCollection(), { query: { _id } });
+    findById({ params: _id }) {
+      return store.findById(_id);
     },
 
     findOne({ params, dispatch }) {
-      return dbQuery.findOne(getCollection(), params).then((result) => (
+      return store.findOne(params).then((result) => (
         expand(dispatch, result, params.expand, references)
       ));
     },
 
-    findMany({ params, dispatch }) {
-      const cursor = paramsToCursor(getCollection(), params);
+    findMany({ params = {}, dispatch }) {
+      const cursor = store.findMany(params);
 
       if (!params || !params.expand) {
         return cursor;
@@ -92,16 +96,16 @@ export default (dispatcher, namespace, _options = {}) => {
     },
 
     updateOne({ params }) {
-      return dbQuery.updateOne(getCollection(), {
+      return store.updateOne({
         ...params,
-        update: addTimestampToUpdate(params.update, options.timestamps),
+        update: addTimestampToUpdate(params.update, timestamps),
       });
     },
 
     updateMany({ params }) {
-      return dbQuery.updateMany(getCollection(), {
+      return store.updateMany({
         ...params,
-        update: addTimestampToUpdate(params.update, options.timestamps),
+        update: addTimestampToUpdate(params.update, timestamps),
       });
     },
 
@@ -116,8 +120,8 @@ export default (dispatcher, namespace, _options = {}) => {
     async save({ params, dispatch }) {
       const data = await dispatch(`${namespace}.validate`, params);
 
-      if (options.timestamps.generate) {
-        addTimestamps(data, options.timestamps);
+      if (timestamps.generate) {
+        addTimestamps(data, timestamps);
       }
 
       if (shouldCacheReferences && shouldGenerateRefCache(data, references)) {
@@ -127,23 +131,23 @@ export default (dispatcher, namespace, _options = {}) => {
         });
       }
 
-      return await dbQuery.save(getCollection(), data);
+      return await store.save(data);
     },
 
     removeOne({ params }) {
-      return dbQuery.deleteOne(getCollection(), params);
+      return store.deleteOne(params);
     },
 
     removeMany({ params }) {
-      return dbQuery.deleteMany(getCollection(), params);
+      return store.deleteMany(params);
     },
 
     count({ params }) {
-      return dbQuery.count(getCollection(), params);
+      return store.count(params);
     },
 
     aggregate({ params }) {
-      return dbQuery.aggregate(getCollection(), params);
+      return store.aggregate(params);
     },
 
     validate({ params }) {
@@ -170,14 +174,14 @@ export default (dispatcher, namespace, _options = {}) => {
         selectedReferences = references.filter(({ refEntity }) => entities.includes(refEntity));
       }
 
-      const cursor = await getCollection().find(query);
+      const cursor = await store.getCollection().find(query);
       const items = await cursor.toArray();
 
       return updateRefCache({
         dispatch,
         items,
         references: selectedReferences,
-        collection: getCollection(),
+        collection: store.getCollection(),
       });
     },
   };

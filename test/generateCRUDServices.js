@@ -316,13 +316,13 @@ describe('generateCRUDServices', () => {
 
       expect(createdAt).to.exist();
       expect(createdAt).to.be.instanceof(Date);
-      expect(createdAt.getTime()).to.be.above(now);
+      expect(createdAt.getTime()).to.be.at.least(now);
 
       return dispatcher.dispatch('entity.User.replaceOne', Object.assign({}, createdUser, {
         lastName: 'Donovan',
       })).then((updatedUser) => {
         const { updatedAt } = updatedUser;
-        expect(updatedAt.getTime()).to.be.above(createdAt.getTime());
+        expect(updatedAt.getTime()).to.be.at.least(createdAt.getTime());
 
         return dispatcher.dispatch('entity.User.updateOne', {
           query: {
@@ -336,7 +336,7 @@ describe('generateCRUDServices', () => {
         }).then(() => (
           dispatcher.dispatch('entity.User.findById', createdUser._id)
             .then(({ updatedAt: lastUpdateAt }) => {
-              expect(lastUpdateAt.getTime()).to.be.above(updatedAt.getTime());
+              expect(lastUpdateAt.getTime()).to.be.at.least(updatedAt.getTime());
             })
         ));
       });
