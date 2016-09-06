@@ -168,7 +168,9 @@ describe('generateCRUDServices', () => {
       lastName: 'Doe',
     }).then((createdUser) => (
       dispatcher.dispatch('entity.User.findOne', {
-        firstName: 'John',
+        query: {
+          firstName: 'John',
+        },
       }).then((foundUser) => {
         expect(foundUser._id.toString()).to.equal(createdUser._id.toString());
         expect(foundUser.lastName).to.equal('Doe');
@@ -278,7 +280,7 @@ describe('generateCRUDServices', () => {
       firstName: 'John',
       lastName: 'Doe',
     }).then((createdUser) => (
-      dispatcher.dispatch('entity.User.removeOne', createdUser._id).then(() => (
+      dispatcher.dispatch('entity.User.deleteOne', createdUser._id).then(() => (
         dispatcher.dispatch('entity.User.findById', createdUser._id)
           .then((result) => {
             expect(result).to.be.null();

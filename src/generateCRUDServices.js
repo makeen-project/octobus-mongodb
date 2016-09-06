@@ -14,6 +14,10 @@ import {
   shouldGenerateRefCache,
 } from './refCache';
 import Store from './Store';
+import { decorators } from 'octobus.js';
+import { ObjectID } from 'mongodb';
+
+const { withSchema } = decorators;
 
 export default (dispatcher, namespace, options = {}) => {
   const parsedOptions = Joi.attempt(options, {
@@ -59,63 +63,92 @@ export default (dispatcher, namespace, options = {}) => {
   });
 
   const map = {
-    query({ params: cb }) {
-      return cb(store, db);
-    },
+    query: withSchema(
+      ({ params: cb }) => cb(store, db),
+      Joi.func().required(),
+    ),
 
-    findById({ params: _id }) {
-      return store.findById(_id);
-    },
+    findById: withSchema(
+      ({ params: _id }) => store.findById(_id),
+      Joi.any().required(),
+    ),
 
-    findOne({ params, dispatch }) {
-      return store.findOne(params).then((result) => (
-        expand(dispatch, result, params.expand, references)
-      ));
-    },
+    findOne: withSchema(
+      ({ params = {}, dispatch }) => (
+        store.findOne(params).then((result) => (
+          expand(dispatch, result, params.expand, references)
+        ))
+      ),
+      Joi.object().keys({
+        query: Joi.object(),
+        options: Joi.object(),
+        expand: Joi.array(),
+      })
+    ),
 
-    findMany({ params = {}, dispatch }) {
-      const cursor = store.findMany(params);
+    findMany: withSchema(
+      ({ params = {}, dispatch }) => {
+        const cursor = store.findMany(params);
 
-      if (!params || !params.expand) {
-        return cursor;
-      }
+        if (!params || !params.expand) {
+          return cursor;
+        }
 
-      return cursor.toArray().then((result) => (
-        expand(dispatch, result, params.expand, references)
-      ));
-    },
+        return cursor.toArray().then((result) => (
+          expand(dispatch, result, params.expand, references)
+        ));
+      },
+      Joi.object().keys({
+        query: Joi.object(),
+        orderBy: Joi.any(),
+        limit: Joi.number(),
+        skip: Joi.number(),
+        fields: Joi.any(),
+        expand: Joi.array(),
+      })
+    ),
 
     createOne({ dispatch, params }) {
       return dispatch(`${namespace}.save`, params);
     },
 
-    createMany({ dispatch, params }) {
-      return Promise.all(
+    createMany: withSchema(
+      ({ dispatch, params }) => Promise.all(
         params.map((item) => dispatch(`${namespace}.save`, item))
-      );
-    },
+      ),
+      Joi.array().min(1).required()
+    ),
 
-    updateOne({ params }) {
-      return store.updateOne({
-        ...params,
-        update: addTimestampToUpdate(params.update, timestamps),
-      });
-    },
+    updateOne: withSchema(
+      ({ params }) => (
+        store.updateOne({
+          ...params,
+          update: addTimestampToUpdate(params.update, timestamps),
+        })
+      ),
+      Joi.object().keys({
+        update: Joi.object().required(),
+      }).unknown(true).required(),
+    ),
 
-    updateMany({ params }) {
-      return store.updateMany({
-        ...params,
-        update: addTimestampToUpdate(params.update, timestamps),
-      });
-    },
+    updateMany: withSchema(
+      ({ params }) => (
+        store.updateMany({
+          ...params,
+          update: addTimestampToUpdate(params.update, timestamps),
+        })
+      ),
+      Joi.object().keys({
+        update: Joi.object().required(),
+      }).unknown(true).required(),
+    ),
 
-    replaceOne({ dispatch, params }) {
-      if (!params._id) {
-        throw new Error('You have to provide an id along with the update payload!');
-      }
-
-      return dispatch(`${namespace}.save`, params);
-    },
+    replaceOne: withSchema(
+      ({ dispatch, params }) => dispatch(`${namespace}.save`, params),
+      Joi.object().keys({
+        _id: Joi.any().required(),
+      }).unknown(true).required(),
+    ),
 
     async save({ params, dispatch }) {
       const data = await dispatch(`${namespace}.validate`, params);
@@ -134,17 +167,32 @@ export default (dispatcher, namespace, options = {}) => {
       return await store.save(data);
     },
 
-    removeOne({ params }) {
-      return store.deleteOne(params);
-    },
+    deleteOne: withSchema(
+      ({ params }) => store.deleteOne(params),
+      Joi.alternatives().try(
+        Joi.object().type(ObjectID),
+        Joi.object().keys({
+          query: Joi.object(),
+          options: Joi.object(),
+        })
+      )
+    ),
 
-    removeMany({ params }) {
-      return store.deleteMany(params);
-    },
+    deleteMany: withSchema(
+      ({ params }) => store.deleteMany(params),
+      Joi.object().keys({
+        query: Joi.object(),
+        options: Joi.object(),
+      })
+    ),
 
-    count({ params }) {
-      return store.count(params);
-    },
+    count: withSchema(
+      ({ params }) => store.count(params),
+      Joi.object().keys({
+        query: Joi.object(),
+        options: Joi.object(),
+      })
+    ),
 
     aggregate({ params }) {
       return store.aggregate(params);

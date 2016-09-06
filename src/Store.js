@@ -14,8 +14,8 @@ export default class Store {
     return this.collection.findOne(query, options);
   }
 
-  findMany({ query = {}, orderBy, limit, skip, fields = {} }) {
-    let selectedFields;
+  findMany({ query = {}, orderBy, limit, skip, fields }) {
+    let selectedFields = fields;
     if (Array.isArray(fields)) {
       selectedFields = fields.reduce((acc, field) => ({
         ...acc,
