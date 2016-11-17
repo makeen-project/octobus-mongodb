@@ -36,6 +36,7 @@
     "babel-runtime": "^6.6.1",
     "joi": "^8.0.5",
     "lodash": "^4.11.1",
+    "mongo-dnorm": "0.2.0",
     "mongodb": "2.1.19",
     "octobus.js": "0.16.1"
   },

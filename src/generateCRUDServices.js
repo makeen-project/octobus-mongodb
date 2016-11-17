@@ -1,18 +1,9 @@
 import Joi from 'joi';
-import { set } from 'lodash';
 import {
   extractCollectionName,
   addTimestamps,
   addTimestampToUpdate,
-  expand,
 } from './utils';
-import {
-  hasRefCachePointers,
-  generateRefCache,
-  updateRefCache,
-  addReplaceListener,
-  shouldGenerateRefCache,
-} from './refCache';
 import Store from './Store';
 import { decorators } from 'octobus.js';
 import { ObjectID } from 'mongodb';
@@ -35,18 +26,18 @@ export default (dispatcher, namespace, options = {}) => {
       updateKey: 'updatedAt',
     }),
     references: Joi.array().items(Joi.object().keys({
-      refId: Joi.any().required(),
-      refEntity: Joi.string().required(),
-      cache: Joi.object().keys({
-        under: Joi.string().required(),
-        properties: [
-          Joi.array().items(Joi.string()),
-        ],
-      }).default({}),
+      collectionName: Joi.string().required(),
+      refProperty: Joi.string(),
+      type: Joi.string().valid(['one', 'many']).default('one'),
+      ns: Joi.string(),
+      extractor: Joi.func().default((item) => item),
+      syncOn: Joi.array().items(Joi.string().valid(['update', 'remove'])
+        .default(['update', 'remove'])),
     })).default([]),
+    refManager: Joi.object(),
   });
 
-  const { collectionName, db, schema, references, timestamps } = parsedOptions;
+  const { collectionName, db, schema, references, timestamps, refManager } = parsedOptions;
 
   const store = parsedOptions.store || new Proxy(new Store(db.collection(collectionName)), {
     get(target, method) {
@@ -54,13 +45,18 @@ export default (dispatcher, namespace, options = {}) => {
     },
   });
 
-  const shouldCacheReferences = hasRefCachePointers(references);
+  const hasReferences = Array.isArray(references) && references.length;
 
-  addReplaceListener({
-    dispatcher,
-    references,
-    namespace,
-  });
+  if (hasReferences) {
+    references.forEach((reference) => {
+      const { collectionName: destination, ...restConfig } = reference;
+      refManager.add({
+        source: collectionName,
+        destination,
+        ...restConfig,
+      });
+    });
+  }
 
   const map = {
     query: withSchema(
@@ -74,37 +70,21 @@ export default (dispatcher, namespace, options = {}) => {
     ),
 
     findOne: withSchema(
-      ({ params = {}, dispatch }) => (
-        store.findOne(params).then((result) => (
-          expand(dispatch, result, params.expand, references)
-        ))
-      ),
+      ({ params = {} }) => store.findOne(params),
       Joi.object().keys({
         query: Joi.object(),
         options: Joi.object(),
-        expand: Joi.array(),
       })
     ),
 
     findMany: withSchema(
-      ({ params = {}, dispatch }) => {
-        const cursor = store.findMany(params);
-
-        if (!params || !params.expand) {
-          return cursor;
-        }
-
-        return cursor.toArray().then((result) => (
-          expand(dispatch, result, params.expand, references)
-        ));
-      },
+      ({ params = {} }) => store.findMany(params),
       Joi.object().keys({
         query: Joi.object(),
         orderBy: Joi.any(),
         limit: Joi.number(),
         skip: Joi.number(),
         fields: Joi.any(),
-        expand: Joi.array(),
       })
     ),
 
@@ -120,24 +100,36 @@ export default (dispatcher, namespace, options = {}) => {
     ),
 
     updateOne: withSchema(
-      ({ params }) => (
-        store.updateOne({
+      async ({ params }) => {
+        const result = await store.updateOne({
           ...params,
           update: addTimestampToUpdate(params.update, timestamps),
-        })
-      ),
+        });
+
+        if (hasReferences) {
+          await refManager.notifyUpdate(collectionName, params.query);
+        }
+
+        return result;
+      },
       Joi.object().keys({
         update: Joi.object().required(),
       }).unknown(true).required(),
     ),
 
     updateMany: withSchema(
-      ({ params }) => (
-        store.updateMany({
+      async ({ params }) => {
+        const result = store.updateMany({
           ...params,
           update: addTimestampToUpdate(params.update, timestamps),
-        })
-      ),
+        });
+
+        if (hasReferences) {
+          await refManager.notifyUpdate(collectionName, params.query);
+        }
+
+        return result;
+      },
       Joi.object().keys({
         update: Joi.object().required(),
       }).unknown(true).required(),
@@ -157,18 +149,35 @@ export default (dispatcher, namespace, options = {}) => {
         addTimestamps(data, timestamps);
       }
 
-      if (shouldCacheReferences && shouldGenerateRefCache(data, references)) {
-        const refCache = await generateRefCache({ dispatch, references, data });
-        Object.keys(refCache).forEach((key) => {
-          set(data, key, refCache[key]);
+      if (hasReferences) {
+        await refManager.sync({
+          collection: collectionName,
+          data,
+          runBulkOperation: false,
         });
       }
 
-      return await store.save(data);
+      const result = await store.save(data);
+
+      if (hasReferences && data._id) {
+        await refManager.notifyUpdate(collectionName, {
+          _id: data._id,
+        });
+      }
+
+      return result;
     },
 
     deleteOne: withSchema(
-      ({ params }) => store.deleteOne(params),
+      async ({ params }) => {
+        const result = await store.deleteOne(params);
+
+        if (hasReferences) {
+          await refManager.notifyRemove(collectionName, params.query);
+        }
+
+        return result;
+      },
       Joi.alternatives().try(
         Joi.object().type(ObjectID),
         Joi.object().keys({
@@ -179,7 +188,15 @@ export default (dispatcher, namespace, options = {}) => {
     ),
 
     deleteMany: withSchema(
-      ({ params }) => store.deleteMany(params),
+      async ({ params }) => {
+        const result = await store.deleteMany(params);
+
+        if (hasReferences) {
+          await refManager.notifyRemove(collectionName, params.query);
+        }
+
+        return result;
+      },
       Joi.object().keys({
         query: Joi.object(),
         options: Joi.object(),
@@ -206,30 +223,6 @@ export default (dispatcher, namespace, options = {}) => {
       return Joi.attempt(params, schema, {
         convert: true,
         stripUnknown: true,
-      });
-    },
-
-    async updateRefCache({ params, dispatch }) {
-      const { query, entities } = {
-        query: {},
-        entities: [],
-        ...params,
-      };
-
-      let selectedReferences = references;
-
-      if (entities.length) {
-        selectedReferences = references.filter(({ refEntity }) => entities.includes(refEntity));
-      }
-
-      const cursor = await store.getCollection().find(query);
-      const items = await cursor.toArray();
-
-      return updateRefCache({
-        dispatch,
-        items,
-        references: selectedReferences,
-        collection: store.getCollection(),
       });
     },
   };

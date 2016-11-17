@@ -5,6 +5,7 @@ import sinon from 'sinon';
 import Octobus from 'octobus.js';
 import { generateCRUDServices } from '../src';
 import { MongoClient } from 'mongodb';
+import { RefManager } from 'mongo-dnorm';
 
 const databaseName = 'test-octobus';
 
@@ -52,11 +53,13 @@ describe('generateCRUDServices', () => {
 
   beforeEach(() => {
     dispatcher = new Octobus();
+    const refManager = new RefManager(db);
 
     dispatcher.subscribeMap('entity.User', generateCRUDServices(dispatcher, 'entity.User', {
       db,
       schema: userSchema,
       collectionName: 'User',
+      refManager,
     }));
 
     dispatcher.subscribeMap('entity.Category', generateCRUDServices(dispatcher, 'entity.Category', {
@@ -64,13 +67,13 @@ describe('generateCRUDServices', () => {
       schema: categorySchema,
       collectionName: 'Category',
       references: [{
-        refId: 'productIds',
-        refEntity: 'Product',
-        cache: {
-          under: 'products',
-          properties: ['name'],
-        },
+        collectionName: 'Product',
+        refProperty: 'productIds',
+        type: 'many',
+        ns: 'products',
+        extractor: (product = {}) => ({ name: product.name }),
       }],
+      refManager,
     }));
 
     dispatcher.subscribeMap('entity.Product', generateCRUDServices(dispatcher, 'entity.Product', {
@@ -78,13 +81,13 @@ describe('generateCRUDServices', () => {
       schema: productSchema,
       collectionName: 'Product',
       references: [{
-        refId: 'categoryId',
-        refEntity: 'Category',
-        cache: {
-          under: 'cache.category',
-          properties: ['name'],
-        },
+        collectionName: 'Category',
+        refProperty: 'categoryId',
+        type: 'one',
+        ns: 'cache.category',
+        extractor: (category = {}) => ({ name: category.name }),
       }],
+      refManager,
     }));
   });
 
@@ -146,7 +149,7 @@ describe('generateCRUDServices', () => {
     }).then((createdUser) => {
       dispatcher.dispatch('entity.User.findById', createdUser._id)
         .then((foundUser) => {
-          expect(foundUser._id).to.equal(createdUser._id);
+          expect(foundUser._id.toString()).to.equal(createdUser._id.toString());
           expect(foundUser.firstName).to.equal('John');
           expect(foundUser.lastName).to.equal('Doe');
         });
@@ -345,54 +348,6 @@ describe('generateCRUDServices', () => {
     });
   });
 
-  describe('expanding references', () => {
-    it('should expand a single reference', () => (
-      dispatcher.dispatch('entity.Category.createOne', {
-        name: 'Laptops',
-      }).then((category) => (
-        dispatcher.dispatch('entity.Product.createOne', {
-          name: 'MacBook Pro',
-          categoryId: category._id,
-        }).then(({ _id }) => (
-          dispatcher.dispatch('entity.Product.findOne', {
-            query: { _id },
-            expand: [{
-              refId: 'categoryId',
-              as: 'category',
-            }],
-          }).then((product) => {
-            expect(product.category).to.exist();
-            expect(product.category.name).to.equal('Laptops');
-          })
-        ))
-      ))
-    ));
-
-    it('should expand an array of references', () => (
-      dispatcher.dispatch('entity.Product.createMany',
-        _.range(1, 5).map((id) => ({
-          name: `product${id}`,
-        }))
-      ).then((products) => (
-        dispatcher.dispatch('entity.Category.createOne', {
-          name: 'category1',
-          productIds: products.map(({ _id }) => _id),
-        }).then(({ _id }) => (
-          dispatcher.dispatch('entity.Category.findOne', {
-            query: { _id },
-            expand: [{
-              refId: 'productIds',
-              as: 'products',
-            }],
-          }).then((category) => {
-            expect(category.products).to.exist();
-            expect(category.products).to.have.a.lengthOf(4);
-          })
-        ))
-      ))
-    ));
-  });
-
   describe('caching references', () => {
     it('should cache a single references', () => (
       dispatcher.dispatch('entity.Category.createOne', {
@@ -428,7 +383,7 @@ describe('generateCRUDServices', () => {
             query: { _id },
           }).then((category) => {
             expect(category.products).to.exist();
-            expect(category.products).to.have.a.lengthOf(4);
+            expect(Object.keys(category.products)).to.have.a.lengthOf(4);
           })
         ))
       ))
@@ -476,15 +431,13 @@ describe('generateCRUDServices', () => {
               },
             },
           }).then(() => (
-            dispatcher.dispatch('entity.Product.updateRefCache', () => (
-              dispatcher.dispatch('entity.Product.findOne', {
-                query: { _id },
-              }).then((product) => {
-                expect(product.cache.category).to.exist();
-                expect(product.cache.category._id).to.not.exist();
-                expect(product.cache.category.name).to.equal('Apple Products');
-              })
-            ))
+            dispatcher.dispatch('entity.Product.findOne', {
+              query: { _id },
+            }).then((product) => {
+              expect(product.cache.category).to.exist();
+              expect(product.cache.category._id).to.not.exist();
+              expect(product.cache.category.name).to.equal('Apple Products');
+            })
           ))
         ))
       ))
