@@ -1,6 +1,6 @@
 {
   "name": "octobus-mongodb",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "A MongoDB CRUD generator that will use octobus.js to create the needed services.",
   "main": "dist/index.js",
   "scripts": {
