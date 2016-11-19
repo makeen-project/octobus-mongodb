@@ -142,6 +142,14 @@ export default (dispatcher, namespace, options = {}) => {
       }).unknown(true).required(),
     ),
 
+    syncReferences: ({ params }) => (
+      refManager.sync({
+        collection: collectionName,
+        data: params,
+        runBulkOperation: false,
+      })
+    ),
+
     async save({ params, dispatch }) {
       const data = await dispatch(`${namespace}.validate`, params);
 
@@ -150,11 +158,7 @@ export default (dispatcher, namespace, options = {}) => {
       }
 
       if (hasReferences) {
-        await refManager.sync({
-          collection: collectionName,
-          data,
-          runBulkOperation: false,
-        });
+        await dispatch(`${namespace}.syncReferences`, data);
       }
 
       const result = await store.save(data);
