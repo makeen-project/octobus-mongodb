@@ -59,26 +59,24 @@ export default (dispatcher, namespace, options = {}) => {
   }
 
   const map = {
-    query: withSchema(
+    query: withSchema(Joi.func().required())(
       ({ params: cb }) => cb(store, db),
-      Joi.func().required(),
     ),
 
-    findById: withSchema(
+    findById: withSchema(Joi.any().required())(
       ({ params: _id }) => store.findById(_id),
-      Joi.any().required(),
     ),
 
     findOne: withSchema(
-      ({ params = {} }) => store.findOne(params),
       Joi.object().keys({
         query: Joi.object(),
         options: Joi.object(),
       }),
+    )(
+      ({ params = {} }) => store.findOne(params),
     ),
 
     findMany: withSchema(
-      ({ params = {} }) => store.findMany(params),
       Joi.object().keys({
         query: Joi.object(),
         orderBy: Joi.any(),
@@ -86,6 +84,8 @@ export default (dispatcher, namespace, options = {}) => {
         skip: Joi.number(),
         fields: Joi.any(),
       }),
+    )(
+      ({ params = {} }) => store.findMany(params),
     ),
 
     createOne({ dispatch, params }) {
@@ -93,13 +93,18 @@ export default (dispatcher, namespace, options = {}) => {
     },
 
     createMany: withSchema(
+      Joi.array().min(1).required(),
+    )(
       ({ dispatch, params }) => Promise.all(
         params.map(item => dispatch(`${namespace}.save`, item)),
       ),
-      Joi.array().min(1).required(),
     ),
 
     updateOne: withSchema(
+      Joi.object().keys({
+        update: Joi.object().required(),
+      }).unknown(true).required(),
+    )(
       async ({ params }) => {
         const result = await store.updateOne({
           ...params,
@@ -112,12 +117,13 @@ export default (dispatcher, namespace, options = {}) => {
 
         return result;
       },
-      Joi.object().keys({
-        update: Joi.object().required(),
-      }).unknown(true).required(),
     ),
 
     updateMany: withSchema(
+      Joi.object().keys({
+        update: Joi.object().required(),
+      }).unknown(true).required(),
+    )(
       async ({ params }) => {
         const result = store.updateMany({
           ...params,
@@ -130,16 +136,14 @@ export default (dispatcher, namespace, options = {}) => {
 
         return result;
       },
-      Joi.object().keys({
-        update: Joi.object().required(),
-      }).unknown(true).required(),
     ),
 
     replaceOne: withSchema(
-      ({ dispatch, params }) => dispatch(`${namespace}.save`, params),
       Joi.object().keys({
         _id: Joi.any().required(),
       }).unknown(true).required(),
+    )(
+      ({ dispatch, params }) => dispatch(`${namespace}.save`, params),
     ),
 
     syncReferences: ({ params }) => (
@@ -173,6 +177,14 @@ export default (dispatcher, namespace, options = {}) => {
     },
 
     deleteOne: withSchema(
+      Joi.alternatives().try(
+        Joi.object().type(ObjectID),
+        Joi.object().keys({
+          query: Joi.object(),
+          options: Joi.object(),
+        }),
+      ),
+    )(
       async ({ params }) => {
         const result = await store.deleteOne(params);
 
@@ -182,16 +194,14 @@ export default (dispatcher, namespace, options = {}) => {
 
         return result;
       },
-      Joi.alternatives().try(
-        Joi.object().type(ObjectID),
-        Joi.object().keys({
-          query: Joi.object(),
-          options: Joi.object(),
-        }),
-      ),
     ),
 
     deleteMany: withSchema(
+      Joi.object().keys({
+        query: Joi.object(),
+        options: Joi.object(),
+      }),
+    )(
       async ({ params }) => {
         const result = await store.deleteMany(params);
 
@@ -201,18 +211,15 @@ export default (dispatcher, namespace, options = {}) => {
 
         return result;
       },
-      Joi.object().keys({
-        query: Joi.object(),
-        options: Joi.object(),
-      }),
     ),
 
     count: withSchema(
-      ({ params }) => store.count(params),
       Joi.object().keys({
         query: Joi.object(),
         options: Joi.object(),
       }),
+    )(
+      ({ params }) => store.count(params),
     ),
 
     aggregate({ params }) {
