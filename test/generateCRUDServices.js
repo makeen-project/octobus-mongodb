@@ -1,11 +1,11 @@
 import _ from 'lodash';
 import Joi from 'joi';
-import { expect } from 'chai';
-import sinon from 'sinon';
-import Octobus from 'octobus.js';
-import { generateCRUDServices } from '../src';
+import { expect } from 'chai'; // eslint-disable-line
+import sinon from 'sinon'; // eslint-disable-line
 import { MongoClient } from 'mongodb';
 import { RefManager } from 'mongo-dnorm';
+import Octobus from 'octobus.js';
+import { generateCRUDServices } from '../src';
 
 const databaseName = 'test-octobus';
 
@@ -93,8 +93,8 @@ describe('generateCRUDServices', () => {
 
   afterEach(
     () => Promise.all(['User', 'Category', 'Product'].map(
-      (collectionName) => db.collection(collectionName).remove()
-    ))
+      collectionName => db.collection(collectionName).remove(),
+    )),
   );
 
   after(() => db.close());
@@ -161,7 +161,7 @@ describe('generateCRUDServices', () => {
       .then(
         (result) => {
           expect(result).to.be.null();
-        }
+        },
       )
   ));
 
@@ -169,7 +169,7 @@ describe('generateCRUDServices', () => {
     dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
-    }).then((createdUser) => (
+    }).then(createdUser => (
       dispatcher.dispatch('entity.User.findOne', {
         query: {
           firstName: 'John',
@@ -192,7 +192,7 @@ describe('generateCRUDServices', () => {
       firstName: 'John3',
       lastName: 'Doe3',
     }]).then(() => (
-      dispatcher.dispatch('entity.User.findMany').then((cursor) => (
+      dispatcher.dispatch('entity.User.findMany').then(cursor => (
         cursor.toArray().then((results) => {
           expect(results).to.have.lengthOf(3);
           expect(results[0].lastName).to.equal('Doe1');
@@ -207,7 +207,7 @@ describe('generateCRUDServices', () => {
     dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
-    }).then((createdUser) => (
+    }).then(createdUser => (
       dispatcher.dispatch('entity.User.replaceOne', Object.assign({}, createdUser, {
         lastName: 'Donovan',
       })).then((updatedUser) => {
@@ -222,7 +222,7 @@ describe('generateCRUDServices', () => {
     dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
-    }).then((createdUser) => (
+    }).then(createdUser => (
       dispatcher.dispatch('entity.User.updateOne', {
         query: {
           _id: createdUser._id,
@@ -266,7 +266,7 @@ describe('generateCRUDServices', () => {
           },
         },
       }).then(() => (
-        dispatcher.dispatch('entity.User.findMany').then((cursor) => (
+        dispatcher.dispatch('entity.User.findMany').then(cursor => (
           cursor.toArray().then((users) => {
             const superAdmins = users.filter(({ role }) => role === 'superAdmin');
             const superUsers = users.filter(({ role }) => role === 'superUser');
@@ -282,7 +282,7 @@ describe('generateCRUDServices', () => {
     dispatcher.dispatch('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
-    }).then((createdUser) => (
+    }).then(createdUser => (
       dispatcher.dispatch('entity.User.deleteOne', createdUser._id).then(() => (
         dispatcher.dispatch('entity.User.findById', createdUser._id)
           .then((result) => {
@@ -352,7 +352,7 @@ describe('generateCRUDServices', () => {
     it('should cache a single references', () => (
       dispatcher.dispatch('entity.Category.createOne', {
         name: 'Laptops',
-      }).then((category) => (
+      }).then(category => (
         dispatcher.dispatch('entity.Product.createOne', {
           name: 'MacBook Pro',
           categoryId: category._id,
@@ -371,10 +371,10 @@ describe('generateCRUDServices', () => {
 
     it('should cache an array of references', () => (
       dispatcher.dispatch('entity.Product.createMany',
-        _.range(1, 5).map((id) => ({
+        _.range(1, 5).map(id => ({
           name: `product${id}`,
-        }))
-      ).then((products) => (
+        })),
+      ).then(products => (
         dispatcher.dispatch('entity.Category.createOne', {
           name: 'category1',
           productIds: products.map(({ _id }) => _id),
@@ -392,7 +392,7 @@ describe('generateCRUDServices', () => {
     it('should update the cache when the reference gets updated', () => (
       dispatcher.dispatch('entity.Category.createOne', {
         name: 'Laptops',
-      }).then((category) => (
+      }).then(category => (
         dispatcher.dispatch('entity.Product.createOne', {
           name: 'MacBook Pro',
           categoryId: category._id,
@@ -416,7 +416,7 @@ describe('generateCRUDServices', () => {
     it('should cache update ref cache', () => (
       dispatcher.dispatch('entity.Category.createOne', {
         name: 'Laptops',
-      }).then((category) => (
+      }).then(category => (
         dispatcher.dispatch('entity.Product.createOne', {
           name: 'MacBook Pro',
           categoryId: category._id,

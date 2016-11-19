@@ -49,15 +49,15 @@ export default class Store {
   }
 
   insertOne(data) {
-    return this.collection.insertOne(data).then((result) => result.ops[0]);
+    return this.collection.insertOne(data).then(result => result.ops[0]);
   }
 
   insertMany(data) {
-    return this.collection.insertMany(data).then((result) => result.ops);
+    return this.collection.insertMany(data).then(result => result.ops);
   }
 
   replaceOne(_id, data) {
-    return this.collection.replaceOne({ _id }, data).then((result) => ({ _id, ...result.ops[0] }));
+    return this.collection.replaceOne({ _id }, data).then(result => ({ _id, ...result.ops[0] }));
   }
 
   save(data) {

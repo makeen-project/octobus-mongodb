@@ -1,12 +1,12 @@
 import Joi from 'joi';
+import { decorators } from 'octobus.js';
+import { ObjectID } from 'mongodb';
 import {
   extractCollectionName,
   addTimestamps,
   addTimestampToUpdate,
 } from './utils';
 import Store from './Store';
-import { decorators } from 'octobus.js';
-import { ObjectID } from 'mongodb';
 
 const { withSchema } = decorators;
 
@@ -30,7 +30,7 @@ export default (dispatcher, namespace, options = {}) => {
       refProperty: Joi.string(),
       type: Joi.string().valid(['one', 'many']).default('one'),
       ns: Joi.string(),
-      extractor: Joi.func().default((item) => item),
+      extractor: Joi.func().default(item => item),
       syncOn: Joi.array().items(Joi.string().valid(['update', 'remove'])
         .default(['update', 'remove'])),
     })).default([]),
@@ -74,7 +74,7 @@ export default (dispatcher, namespace, options = {}) => {
       Joi.object().keys({
         query: Joi.object(),
         options: Joi.object(),
-      })
+      }),
     ),
 
     findMany: withSchema(
@@ -85,7 +85,7 @@ export default (dispatcher, namespace, options = {}) => {
         limit: Joi.number(),
         skip: Joi.number(),
         fields: Joi.any(),
-      })
+      }),
     ),
 
     createOne({ dispatch, params }) {
@@ -94,9 +94,9 @@ export default (dispatcher, namespace, options = {}) => {
 
     createMany: withSchema(
       ({ dispatch, params }) => Promise.all(
-        params.map((item) => dispatch(`${namespace}.save`, item))
+        params.map(item => dispatch(`${namespace}.save`, item)),
       ),
-      Joi.array().min(1).required()
+      Joi.array().min(1).required(),
     ),
 
     updateOne: withSchema(
@@ -187,8 +187,8 @@ export default (dispatcher, namespace, options = {}) => {
         Joi.object().keys({
           query: Joi.object(),
           options: Joi.object(),
-        })
-      )
+        }),
+      ),
     ),
 
     deleteMany: withSchema(
@@ -204,7 +204,7 @@ export default (dispatcher, namespace, options = {}) => {
       Joi.object().keys({
         query: Joi.object(),
         options: Joi.object(),
-      })
+      }),
     ),
 
     count: withSchema(
@@ -212,7 +212,7 @@ export default (dispatcher, namespace, options = {}) => {
       Joi.object().keys({
         query: Joi.object(),
         options: Joi.object(),
-      })
+      }),
     ),
 
     aggregate({ params }) {
