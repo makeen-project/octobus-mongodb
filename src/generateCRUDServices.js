@@ -186,13 +186,11 @@ export default (dispatcher, namespace, options = {}) => {
       ),
     )(
       async ({ params }) => {
-        const result = await store.deleteOne(params);
-
-        if (hasReferences) {
+        if (hasReferences) { // has to be called first
           await refManager.notifyRemove(collectionName, params.query);
         }
 
-        return result;
+        return store.deleteOne(params);
       },
     ),
 
@@ -203,13 +201,11 @@ export default (dispatcher, namespace, options = {}) => {
       }),
     )(
       async ({ params }) => {
-        const result = await store.deleteMany(params);
-
-        if (hasReferences) {
+        if (hasReferences) { // has to be called first
           await refManager.notifyRemove(collectionName, params.query);
         }
 
-        return result;
+        return store.deleteMany(params);
       },
     ),
 
