@@ -36,7 +36,7 @@
   "dependencies": {
     "joi": "10.0.1",
     "lodash": "4.17.2",
-    "mongo-dnorm": "0.2.1",
+    "mongo-dnorm": "0.2.4",
     "mongodb": "2.2.11",
     "octobus.js": "0.18.1"
   },

@@ -111,9 +111,7 @@ export default (dispatcher, namespace, options = {}) => {
           update: addTimestampToUpdate(params.update, timestamps),
         });
 
-        if (hasReferences) {
-          await refManager.notifyUpdate(collectionName, params.query);
-        }
+        await refManager.notifyUpdate(collectionName, params.query);
 
         return result;
       },
@@ -130,9 +128,7 @@ export default (dispatcher, namespace, options = {}) => {
           update: addTimestampToUpdate(params.update, timestamps),
         });
 
-        if (hasReferences) {
-          await refManager.notifyUpdate(collectionName, params.query);
-        }
+        await refManager.notifyUpdate(collectionName, params.query);
 
         return result;
       },
@@ -168,7 +164,7 @@ export default (dispatcher, namespace, options = {}) => {
 
       const result = await store.save(data);
 
-      if (hasReferences && isUpdate) {
+      if (isUpdate) {
         await refManager.notifyUpdate(collectionName, {
           _id: data._id,
         });
@@ -187,9 +183,7 @@ export default (dispatcher, namespace, options = {}) => {
       ),
     )(
       async ({ params }) => {
-        if (hasReferences) { // has to be called first
-          await refManager.notifyRemove(collectionName, params.query);
-        }
+        await refManager.notifyRemove(collectionName, params.query);
 
         return store.deleteOne(params);
       },
@@ -202,9 +196,7 @@ export default (dispatcher, namespace, options = {}) => {
       }),
     )(
       async ({ params }) => {
-        if (hasReferences) { // has to be called first
-          await refManager.notifyRemove(collectionName, params.query);
-        }
+        await refManager.notifyRemove(collectionName, params.query);
 
         return store.deleteMany(params);
       },
