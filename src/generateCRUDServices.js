@@ -156,6 +156,7 @@ export default (dispatcher, namespace, options = {}) => {
 
     async save({ params, dispatch }) {
       const data = await dispatch(`${namespace}.validate`, params);
+      const isUpdate = !!data._id;
 
       if (timestamps.generate) {
         addTimestamps(data, timestamps);
@@ -167,7 +168,7 @@ export default (dispatcher, namespace, options = {}) => {
 
       const result = await store.save(data);
 
-      if (hasReferences && data._id) {
+      if (hasReferences && isUpdate) {
         await refManager.notifyUpdate(collectionName, {
           _id: data._id,
         });
