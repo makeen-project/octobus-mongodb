@@ -1,9 +1,5 @@
 import Joi from 'joi';
 import { decorators } from 'octobus.js';
-import {
-  addTimestamps,
-  addTimestampToUpdate,
-} from './utils';
 import Store from './Store';
 
 const { withSchema } = decorators;
@@ -12,18 +8,9 @@ export default (namespace, options = {}) => {
   const parsedOptions = Joi.attempt(options, {
     store: Joi.object().type(Store).required(),
     schema: Joi.object(),
-    timestamps: Joi.object().keys({
-      generate: Joi.boolean().required(),
-      createKey: Joi.string().required(),
-      updateKey: Joi.string().required(),
-    }).default({
-      generate: true,
-      createKey: 'createdAt',
-      updateKey: 'updatedAt',
-    }),
   });
 
-  const { schema, timestamps } = parsedOptions;
+  const { schema } = parsedOptions;
 
   const store = new Proxy(parsedOptions.store, {
     get(target, method) {
@@ -79,10 +66,7 @@ export default (namespace, options = {}) => {
       }).unknown(true).required(),
     )(
       ({ params }) => (
-        store.updateOne({
-          ...params,
-          update: addTimestampToUpdate(params.update, timestamps),
-        })
+        store.updateOne(params)
       ),
     ),
 
@@ -92,10 +76,7 @@ export default (namespace, options = {}) => {
       }).unknown(true).required(),
     )(
       ({ params }) => (
-        store.updateMany({
-          ...params,
-          update: addTimestampToUpdate(params.update, timestamps),
-        })
+        store.updateMany(params)
       ),
     ),
 
@@ -107,11 +88,6 @@ export default (namespace, options = {}) => {
 
     async save({ params, dispatch }) {
       const data = await dispatch(`${namespace}.validate`, params);
-
-      if (timestamps.generate) {
-        addTimestamps(data, timestamps);
-      }
-
       return store.save(data);
     },
 

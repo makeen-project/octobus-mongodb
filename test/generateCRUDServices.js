@@ -5,7 +5,7 @@ import sinon from 'sinon'; // eslint-disable-line
 import { MongoClient } from 'mongodb';
 import { RefManager } from 'mongo-dnorm';
 import Octobus from 'octobus.js';
-import { generateCRUDServices, Store } from '../src';
+import { generateCRUDServices, StoreWithTimestamps as Store } from '../src';
 
 const databaseName = 'test-octobus';
 
