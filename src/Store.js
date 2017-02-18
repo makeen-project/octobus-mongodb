@@ -1,11 +1,14 @@
 import Joi from 'joi';
-import { storeOptions as optionsSchema } from './schemas';
+import { storeOptions } from './schemas';
 
 export default class Store {
-  static optionsSchema = optionsSchema;
+  constructor(options, optionsSchema = {}) {
+    this.options = Joi.attempt(options, {
+      ...storeOptions,
+      ...optionsSchema,
+    });
 
-  constructor(options) {
-    const { db, collectionName, refManager, references } = Joi.attempt(options, optionsSchema);
+    const { db, collectionName, refManager, references } = this.options;
 
     this.db = db;
     this.collectionName = collectionName;

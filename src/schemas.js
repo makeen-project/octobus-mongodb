@@ -3,7 +3,7 @@ import Joi from 'joi';
 const storeOptions = {
   db: Joi.object().required(),
   collectionName: Joi.string().required(),
-  refManager: Joi.object().required(),
+  refManager: Joi.object(),
   references: Joi.array().items(Joi.object().keys({
     collectionName: Joi.string().required(),
     refProperty: Joi.string(),

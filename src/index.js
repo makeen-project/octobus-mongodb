@@ -1,11 +1,11 @@
 import generateCRUDServices from './generateCRUDServices';
 import Store from './Store';
-import StoreWithTimestamps from './StoreWithTimestamps';
+import * as decorators from './decorators';
 import utils from './utils';
 
 export {
   generateCRUDServices,
   Store,
-  StoreWithTimestamps,
+  decorators,
   utils,
 };
