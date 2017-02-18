@@ -5,7 +5,7 @@ import sinon from 'sinon'; // eslint-disable-line
 import { MongoClient } from 'mongodb';
 import { RefManager } from 'mongo-dnorm';
 import Octobus from 'octobus.js';
-import { generateCRUDServices } from '../src';
+import { generateCRUDServices, Store } from '../src';
 
 const databaseName = 'test-octobus';
 
@@ -55,39 +55,41 @@ describe('generateCRUDServices', () => {
     dispatcher = new Octobus();
     const refManager = new RefManager(db);
 
-    dispatcher.subscribeMap('entity.User', generateCRUDServices(dispatcher, 'entity.User', {
-      db,
+    dispatcher.subscribeMap('entity.User', generateCRUDServices('entity.User', {
+      store: new Store({ db, collectionName: 'User', refManager }),
       schema: userSchema,
-      collectionName: 'User',
-      refManager,
     }));
 
-    dispatcher.subscribeMap('entity.Category', generateCRUDServices(dispatcher, 'entity.Category', {
-      db,
-      schema: categorySchema,
-      collectionName: 'Category',
-      references: [{
-        collectionName: 'Product',
-        refProperty: 'productIds',
-        type: 'many',
-        ns: 'products',
-        extractor: (product = {}) => ({ name: product.name }),
-      }],
-      refManager,
-    }));
-
-    dispatcher.subscribeMap('entity.Product', generateCRUDServices(dispatcher, 'entity.Product', {
-      db,
-      schema: productSchema,
-      collectionName: 'Product',
-      references: [{
+    dispatcher.subscribeMap('entity.Category', generateCRUDServices('entity.Category', {
+      store: new Store({
+        db,
+        refManager,
         collectionName: 'Category',
-        refProperty: 'categoryId',
-        type: 'one',
-        ns: 'cache.category',
-        extractor: (category = {}) => ({ name: category.name }),
-      }],
-      refManager,
+        references: [{
+          collectionName: 'Product',
+          refProperty: 'productIds',
+          type: 'many',
+          ns: 'products',
+          extractor: (product = {}) => ({ name: product.name }),
+        }],
+      }),
+      schema: categorySchema,
+    }));
+
+    dispatcher.subscribeMap('entity.Product', generateCRUDServices('entity.Product', {
+      store: new Store({
+        db,
+        refManager,
+        collectionName: 'Product',
+        references: [{
+          collectionName: 'Category',
+          refProperty: 'categoryId',
+          type: 'one',
+          ns: 'cache.category',
+          extractor: (category = {}) => ({ name: category.name }),
+        }],
+      }),
+      schema: productSchema,
     }));
   });
 
@@ -208,9 +210,10 @@ describe('generateCRUDServices', () => {
       firstName: 'John',
       lastName: 'Doe',
     }).then(createdUser => (
-      dispatcher.dispatch('entity.User.replaceOne', Object.assign({}, createdUser, {
+      dispatcher.dispatch('entity.User.replaceOne', {
+        ...createdUser,
         lastName: 'Donovan',
-      })).then((updatedUser) => {
+      }).then((updatedUser) => {
         expect(updatedUser._id).to.equal(createdUser._id);
         expect(updatedUser.firstName).to.equal('John');
         expect(updatedUser.lastName).to.equal('Donovan');
@@ -283,7 +286,7 @@ describe('generateCRUDServices', () => {
       firstName: 'John',
       lastName: 'Doe',
     }).then(createdUser => (
-      dispatcher.dispatch('entity.User.deleteOne', createdUser._id).then(() => (
+      dispatcher.dispatch('entity.User.deleteOne', { query: { _id: createdUser._id } }).then(() => (
         dispatcher.dispatch('entity.User.findById', createdUser._id)
           .then((result) => {
             expect(result).to.be.null();

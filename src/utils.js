@@ -1,10 +1,5 @@
 import _ from 'lodash';
 
-export const extractCollectionName = (namespace) => {
-  const lastIndex = namespace.lastIndexOf('.');
-  return lastIndex > -1 && namespace.substr(lastIndex + 1);
-};
-
 export const addTimestamps = (data, { createKey, updateKey }) => {
   _.set(data, updateKey, new Date());
 

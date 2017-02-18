@@ -1,13 +1,54 @@
-import { ObjectID } from 'mongodb';
-import _ from 'lodash';
+import Joi from 'joi';
 
 export default class Store {
-  constructor(collection) {
-    this.collection = collection;
+  static parsedOptions(options) {
+    return Joi.attempt(options, {
+      db: Joi.object().required(),
+      collectionName: Joi.string().required(),
+      refManager: Joi.object().required(),
+      references: Joi.array().items(Joi.object().keys({
+        collectionName: Joi.string().required(),
+        refProperty: Joi.string(),
+        type: Joi.string().valid(['one', 'many']).default('one'),
+        ns: Joi.string(),
+        extractor: Joi.func().default(item => item),
+        syncOn: Joi.array().items(Joi.string().valid(['update', 'remove'])
+          .default(['update', 'remove'])),
+      })).default([]),
+    });
+  }
+
+  constructor(options) {
+    const { db, collectionName, refManager, references } = Store.parsedOptions(options);
+
+    this.db = db;
+    this.collectionName = collectionName;
+    this.collection = this.db.collection(this.collectionName);
+    this.refManager = refManager;
+    this.references = references;
+
+    if (this.references) {
+      this.linkReferences();
+    }
+  }
+
+  getDb() {
+    return this.db;
   }
 
   getCollection() {
     return this.collection;
+  }
+
+  linkReferences() {
+    this.references.forEach((reference) => {
+      const { collectionName: destination, ...restConfig } = reference;
+      this.refManager.add({
+        source: this.collectionName,
+        destination,
+        ...restConfig,
+      });
+    });
   }
 
   findOne({ query = {}, options = {} }) {
@@ -56,38 +97,49 @@ export default class Store {
     return this.collection.insertMany(data).then(result => result.ops);
   }
 
-  replaceOne(_id, data) {
-    return this.collection.replaceOne({ _id }, data).then(result => ({ _id, ...result.ops[0] }));
+  async replaceOne(query, data) {
+    const { ops } = await this.collection.replaceOne(query, data);
+
+    await this.refManager.notifyUpdate(this.collectionName, query);
+
+    return ops[0];
   }
 
-  save(data) {
-    return data._id ? this.replaceOne(data._id, _.omit(data, '_id')) : this.insert(data);
+  async save(data) {
+    if (this.hasReferences()) {
+      await this.syncReferences(data);
+    }
+
+    return data._id ? this.replaceOne({ _id: data._id }, data) : this.insert(data);
   }
 
-  deleteMany({ query = {}, options = {} }) {
+  async deleteMany({ query = {}, options = {} }) {
+    await this.refManager.notifyRemove(this.collectionName, query);
     return this.collection.deleteMany(query, options);
   }
 
-  deleteOne(params) {
-    if (params instanceof ObjectID) {
-      return this.collection.deleteOne({ _id: params });
-    }
-
+  async deleteOne(params) {
     const { query, options } = {
       query: {},
       options: {},
       ...params,
     };
 
+    await this.refManager.notifyRemove(this.collectionName, query);
+
     return this.collection.deleteOne(query, options);
   }
 
-  updateMany({ query = {}, update, options = {} }) {
-    return this.collection.updateMany(query, update, options);
+  async updateMany({ query = {}, update, options = {} }) {
+    const result = await this.collection.updateMany(query, update, options);
+    await this.refManager.notifyUpdate(this.collectionName, query);
+    return result;
   }
 
-  updateOne({ query = {}, update, options = {} }) {
-    return this.collection.updateOne(query, update, options);
+  async updateOne({ query = {}, update, options = {} }) {
+    const result = await this.collection.updateOne(query, update, options);
+    await this.refManager.notifyUpdate(this.collectionName, query);
+    return result;
   }
 
   count({ query = {}, options = {} }) {
@@ -97,5 +149,17 @@ export default class Store {
   aggregate(params) {
     const { pipeline, options } = params;
     return this.collection.aggregate(pipeline, options);
+  }
+
+  syncReferences(params) {
+    return this.refManager.sync({
+      collection: this.collectionName,
+      data: params,
+      runBulkOperation: false,
+    });
+  }
+
+  hasReferences() {
+    return Array.isArray(this.references) && this.references.length;
   }
 }
