@@ -13,7 +13,10 @@ const withCustomId = Store => class extends Store {
     });
 
     this.id = this.options.id.key;
-    this.idGenerator = this.options.id.generator;
+  }
+
+  generateId() {
+    return this.options.id.generator();
   }
 
   findById(id) {
@@ -44,13 +47,13 @@ const withCustomId = Store => class extends Store {
   }
 
   _applyId(data) {
-    if (data[this.id] || !this.idGenerator) {
+    if (data[this.id] || !this.options.id.idGenerator) {
       return data;
     }
 
     return {
       ...data,
-      [this.id]: this.idGenerator(),
+      [this.id]: this.generateId(),
     };
   }
 };

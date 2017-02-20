@@ -16,12 +16,10 @@ const withTimestamps = Store => class extends Store {
         updateKey: 'updatedAt',
       }),
     });
-
-    this.timestamps = this.options.timestamps;
   }
 
   async save(data) {
-    addTimestamps(data, this.timestamps);
+    addTimestamps(data, this.options.timestamps);
 
     return super.save(data);
   }
@@ -29,14 +27,14 @@ const withTimestamps = Store => class extends Store {
   async updateMany(params) {
     return super.updateMany({
       ...params,
-      update: addTimestampToUpdate(params.update, this.timestamps),
+      update: addTimestampToUpdate(params.update, this.options.timestamps),
     });
   }
 
   async updateOne(params) {
     return super.updateOne({
       ...params,
-      update: addTimestampToUpdate(params.update, this.timestamps),
+      update: addTimestampToUpdate(params.update, this.options.timestamps),
     });
   }
 };

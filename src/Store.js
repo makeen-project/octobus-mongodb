@@ -8,21 +8,15 @@ export default class Store {
       ...optionsSchema,
     });
 
-    const { db, collectionName, refManager, references } = this.options;
+    this.collection = this.options.db.collection(this.options.collectionName);
 
-    this.db = db;
-    this.collectionName = collectionName;
-    this.collection = this.db.collection(this.collectionName);
-    this.refManager = refManager;
-    this.references = references;
-
-    if (this.references) {
+    if (this.options.references) {
       this.linkReferences();
     }
   }
 
   getDb() {
-    return this.db;
+    return this.options.db;
   }
 
   getCollection() {
@@ -30,10 +24,10 @@ export default class Store {
   }
 
   linkReferences() {
-    this.references.forEach((reference) => {
+    this.options.references.forEach((reference) => {
       const { collectionName: destination, ...restConfig } = reference;
-      this.refManager.add({
-        source: this.collectionName,
+      this.options.refManager.add({
+        source: this.options.collectionName,
         destination,
         ...restConfig,
       });
@@ -89,7 +83,7 @@ export default class Store {
   async replaceOne(query, data) {
     const { ops } = await this.collection.replaceOne(query, data);
 
-    await this.refManager.notifyUpdate(this.collectionName, query);
+    await this.options.refManager.notifyUpdate(this.options.collectionName, query);
 
     return ops[0];
   }
@@ -103,7 +97,7 @@ export default class Store {
   }
 
   async deleteMany({ query = {}, options = {} }) {
-    await this.refManager.notifyRemove(this.collectionName, query);
+    await this.options.refManager.notifyRemove(this.options.collectionName, query);
     return this.collection.deleteMany(query, options);
   }
 
@@ -114,20 +108,20 @@ export default class Store {
       ...params,
     };
 
-    await this.refManager.notifyRemove(this.collectionName, query);
+    await this.options.refManager.notifyRemove(this.options.collectionName, query);
 
     return this.collection.deleteOne(query, options);
   }
 
   async updateMany({ query = {}, update, options = {} }) {
     const result = await this.collection.updateMany(query, update, options);
-    await this.refManager.notifyUpdate(this.collectionName, query);
+    await this.options.refManager.notifyUpdate(this.options.collectionName, query);
     return result;
   }
 
   async updateOne({ query = {}, update, options = {} }) {
     const result = await this.collection.updateOne(query, update, options);
-    await this.refManager.notifyUpdate(this.collectionName, query);
+    await this.options.refManager.notifyUpdate(this.options.collectionName, query);
     return result;
   }
 
@@ -141,14 +135,14 @@ export default class Store {
   }
 
   syncReferences(params) {
-    return this.refManager.sync({
-      collection: this.collectionName,
+    return this.options.refManager.sync({
+      collection: this.options.collectionName,
       data: params,
       runBulkOperation: false,
     });
   }
 
   hasReferences() {
-    return Array.isArray(this.references) && this.references.length;
+    return Array.isArray(this.options.references) && this.options.references.length;
   }
 }
