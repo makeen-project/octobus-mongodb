@@ -10,13 +10,7 @@ export default (namespace, options = {}) => {
     schema: Joi.object(),
   });
 
-  const { schema } = parsedOptions;
-
-  const store = new Proxy(parsedOptions.store, {
-    get(target, method) {
-      return method in target ? target[method] : target.getCollection()[method];
-    },
-  });
+  const { schema, store } = parsedOptions;
 
   const map = {
     query: withSchema(Joi.func().required())(
