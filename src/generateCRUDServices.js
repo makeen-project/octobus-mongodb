@@ -20,11 +20,11 @@ export default (namespace, options = {}) => {
 
   const map = {
     query: withSchema(Joi.func().required())(
-      ({ params: cb }) => cb(store),
+      ({ message }) => message.data(store),
     ),
 
     findById: withSchema(Joi.any().required())(
-      ({ params }) => store.findById(params),
+      ({ message }) => store.findById(message.data),
     ),
 
     findOne: withSchema(
@@ -33,7 +33,7 @@ export default (namespace, options = {}) => {
         options: Joi.object(),
       }),
     )(
-      ({ params = {} }) => store.findOne(params),
+      ({ message }) => store.findOne(message.data || {}),
     ),
 
     findMany: withSchema(
@@ -45,18 +45,18 @@ export default (namespace, options = {}) => {
         fields: Joi.any(),
       }),
     )(
-      ({ params = {} }) => store.findMany(params),
+      ({ message }) => store.findMany(message.data || {}),
     ),
 
-    createOne({ dispatch, params }) {
-      return dispatch(`${namespace}.save`, params);
+    createOne({ send, message }) {
+      return send(`${namespace}.save`, message.data);
     },
 
     createMany: withSchema(
       Joi.array().min(1).required(),
     )(
-      ({ dispatch, params }) => Promise.all(
-        params.map(item => dispatch(`${namespace}.save`, item)),
+      ({ send, message }) => Promise.all(
+        message.data.map(item => send(`${namespace}.save`, item)),
       ),
     ),
 
@@ -65,8 +65,8 @@ export default (namespace, options = {}) => {
         update: Joi.object().required(),
       }).unknown(true).required(),
     )(
-      ({ params }) => (
-        store.updateOne(params)
+      ({ message }) => (
+        store.updateOne(message.data)
       ),
     ),
 
@@ -75,19 +75,19 @@ export default (namespace, options = {}) => {
         update: Joi.object().required(),
       }).unknown(true).required(),
     )(
-      ({ params }) => (
-        store.updateMany(params)
+      ({ message }) => (
+        store.updateMany(message.data)
       ),
     ),
 
     replaceOne: withSchema(
       Joi.object().unknown(true).required(),
     )(
-      ({ dispatch, params }) => dispatch(`${namespace}.save`, params),
+      ({ send, message }) => send(`${namespace}.save`, message.data),
     ),
 
-    async save({ params, dispatch }) {
-      const data = await dispatch(`${namespace}.validate`, params);
+    async save({ message, send }) {
+      const data = await send(`${namespace}.validate`, message.data);
       return store.save(data);
     },
 
@@ -97,7 +97,7 @@ export default (namespace, options = {}) => {
         options: Joi.object(),
       }),
     )(
-      async ({ params }) => store.deleteOne(params),
+      async ({ message }) => store.deleteOne(message.data),
     ),
 
     deleteMany: withSchema(
@@ -106,7 +106,7 @@ export default (namespace, options = {}) => {
         options: Joi.object(),
       }),
     )(
-      async ({ params }) => store.deleteMany(params),
+      async ({ message }) => store.deleteMany(message.data),
     ),
 
     count: withSchema(
@@ -115,19 +115,19 @@ export default (namespace, options = {}) => {
         options: Joi.object(),
       }),
     )(
-      ({ params }) => store.count(params),
+      ({ message }) => store.count(message.data),
     ),
 
-    aggregate({ params }) {
-      return store.aggregate(params);
+    aggregate({ message }) {
+      return store.aggregate(message.data);
     },
 
-    validate({ params }) {
+    validate({ message }) {
       if (!schema) {
-        return params;
+        return message.data;
       }
 
-      return Joi.attempt(params, schema, {
+      return Joi.attempt(message.data, schema, {
         convert: true,
         stripUnknown: true,
       });

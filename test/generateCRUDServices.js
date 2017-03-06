@@ -4,7 +4,7 @@ import { expect } from 'chai'; // eslint-disable-line
 import sinon from 'sinon'; // eslint-disable-line
 import { MongoClient } from 'mongodb';
 import { RefManager } from 'mongo-dnorm';
-import Octobus from 'octobus.js';
+import { Plugin, Transport } from 'octobus.js';
 import { generateCRUDServices, Store as OriginalStore, decorators } from '../src';
 
 const Store = decorators.withTimestamps(OriginalStore);
@@ -44,7 +44,8 @@ const productSchema = {
 };
 
 describe('generateCRUDServices', () => {
-  let dispatcher;
+  let transport;
+  let plugin;
   let db;
 
   before(() => (
@@ -54,15 +55,17 @@ describe('generateCRUDServices', () => {
   ));
 
   beforeEach(() => {
-    dispatcher = new Octobus();
+    transport = new Transport();
+    plugin = new Plugin();
+    plugin.connect(transport);
     const refManager = new RefManager(db);
 
-    dispatcher.subscribeMap('entity.User', generateCRUDServices('entity.User', {
+    plugin.subscribeTree('entity.User', generateCRUDServices('entity.User', {
       store: new Store({ db, collectionName: 'User', refManager }),
       schema: userSchema,
     }));
 
-    dispatcher.subscribeMap('entity.Category', generateCRUDServices('entity.Category', {
+    plugin.subscribeTree('entity.Category', generateCRUDServices('entity.Category', {
       store: new Store({
         db,
         refManager,
@@ -78,7 +81,7 @@ describe('generateCRUDServices', () => {
       schema: categorySchema,
     }));
 
-    dispatcher.subscribeMap('entity.Product', generateCRUDServices('entity.Product', {
+    plugin.subscribeTree('entity.Product', generateCRUDServices('entity.Product', {
       store: new Store({
         db,
         refManager,
@@ -103,22 +106,8 @@ describe('generateCRUDServices', () => {
 
   after(() => db.close());
 
-  it('should call the create hooks', () => {
-    const before = sinon.spy();
-    const after = sinon.spy();
-    dispatcher.onBefore('entity.User.createOne', before);
-    dispatcher.onAfter('entity.User.createOne', after);
-    return dispatcher.dispatch('entity.User.createOne', {
-      firstName: 'John',
-      lastName: 'Doe',
-    }).then(() => {
-      expect(before).to.have.been.calledOnce();
-      expect(after).to.have.been.calledOnce();
-    });
-  });
-
   it('should create a new record', () => (
-    dispatcher.dispatch('entity.User.createOne', {
+    plugin.send('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((result) => {
@@ -129,7 +118,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should create an array of records', () => (
-    dispatcher.dispatch('entity.User.createMany', [{
+    plugin.send('entity.User.createMany', [{
       firstName: 'John1',
       lastName: 'Doe1',
     }, {
@@ -147,11 +136,11 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should find an existing record by id', () => (
-    dispatcher.dispatch('entity.User.createOne', {
+    plugin.send('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((createdUser) => {
-      dispatcher.dispatch('entity.User.findById', createdUser._id)
+      plugin.send('entity.User.findById', createdUser._id)
         .then((foundUser) => {
           expect(foundUser._id.toString()).to.equal(createdUser._id.toString());
           expect(foundUser.firstName).to.equal('John');
@@ -161,7 +150,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should return null when trying to find an unexisting record by id', () => (
-    dispatcher.dispatch('entity.User.findById', '__none__')
+    plugin.send('entity.User.findById', '__none__')
       .then(
         (result) => {
           expect(result).to.be.null();
@@ -170,11 +159,11 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should find one record', () => (
-    dispatcher.dispatch('entity.User.createOne', {
+    plugin.send('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then(createdUser => (
-      dispatcher.dispatch('entity.User.findOne', {
+      plugin.send('entity.User.findOne', {
         query: {
           firstName: 'John',
         },
@@ -186,7 +175,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should find multiple records', () => (
-    dispatcher.dispatch('entity.User.createMany', [{
+    plugin.send('entity.User.createMany', [{
       firstName: 'John1',
       lastName: 'Doe1',
     }, {
@@ -196,7 +185,7 @@ describe('generateCRUDServices', () => {
       firstName: 'John3',
       lastName: 'Doe3',
     }]).then(() => (
-      dispatcher.dispatch('entity.User.findMany').then(cursor => (
+      plugin.send('entity.User.findMany').then(cursor => (
         cursor.toArray().then((results) => {
           expect(results).to.have.lengthOf(3);
           expect(results[0].lastName).to.equal('Doe1');
@@ -208,11 +197,11 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should replace an existing record', () => (
-    dispatcher.dispatch('entity.User.createOne', {
+    plugin.send('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then(createdUser => (
-      dispatcher.dispatch('entity.User.replaceOne', {
+      plugin.send('entity.User.replaceOne', {
         ...createdUser,
         lastName: 'Donovan',
       }).then((updatedUser) => {
@@ -224,11 +213,11 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should update a single record', () => (
-    dispatcher.dispatch('entity.User.createOne', {
+    plugin.send('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then(createdUser => (
-      dispatcher.dispatch('entity.User.updateOne', {
+      plugin.send('entity.User.updateOne', {
         query: {
           _id: createdUser._id,
         },
@@ -238,7 +227,7 @@ describe('generateCRUDServices', () => {
           },
         },
       }).then(() => (
-        dispatcher.dispatch('entity.User.findById', createdUser._id).then((updatedUser) => {
+        plugin.send('entity.User.findById', createdUser._id).then((updatedUser) => {
           expect(updatedUser._id.toString()).to.equal(createdUser._id.toString());
           expect(updatedUser.firstName).to.equal('John');
           expect(updatedUser.lastName).to.equal('Donovan');
@@ -248,7 +237,7 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should update multiple records', () => (
-    dispatcher.dispatch('entity.User.createMany', [{
+    plugin.send('entity.User.createMany', [{
       firstName: 'John1',
       lastName: 'Doe1',
       role: 'admin',
@@ -261,7 +250,7 @@ describe('generateCRUDServices', () => {
       lastName: 'Doe3',
       role: 'admin',
     }]).then(() => (
-      dispatcher.dispatch('entity.User.updateMany', {
+      plugin.send('entity.User.updateMany', {
         query: {
           role: 'admin',
         },
@@ -271,7 +260,7 @@ describe('generateCRUDServices', () => {
           },
         },
       }).then(() => (
-        dispatcher.dispatch('entity.User.findMany').then(cursor => (
+        plugin.send('entity.User.findMany').then(cursor => (
           cursor.toArray().then((users) => {
             const superAdmins = users.filter(({ role }) => role === 'superAdmin');
             const superUsers = users.filter(({ role }) => role === 'superUser');
@@ -284,12 +273,12 @@ describe('generateCRUDServices', () => {
   ));
 
   it('should remove an existing record', () => (
-    dispatcher.dispatch('entity.User.createOne', {
+    plugin.send('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then(createdUser => (
-      dispatcher.dispatch('entity.User.deleteOne', { query: { _id: createdUser._id } }).then(() => (
-        dispatcher.dispatch('entity.User.findById', createdUser._id)
+      plugin.send('entity.User.deleteOne', { query: { _id: createdUser._id } }).then(() => (
+        plugin.send('entity.User.findById', createdUser._id)
           .then((result) => {
             expect(result).to.be.null();
           })
@@ -297,28 +286,9 @@ describe('generateCRUDServices', () => {
     ))
   ));
 
-  it('should execute before and after save events', () => {
-    const before = sinon.spy();
-    const after = sinon.spy();
-
-    dispatcher.onBefore('entity.User.save', before);
-    dispatcher.onAfter('entity.User.save', after);
-
-    const promise = dispatcher.dispatch('entity.User.createOne', {
-      firstName: 'John',
-      lastName: 'Doe',
-    });
-
-    expect(before).to.have.been.calledOnce();
-
-    return promise.then(() => {
-      expect(after).to.have.been.calledOnce();
-    });
-  });
-
   it('should generate timestamps', () => {
     const now = Date.now();
-    return dispatcher.dispatch('entity.User.createOne', {
+    return plugin.send('entity.User.createOne', {
       firstName: 'John',
       lastName: 'Doe',
     }).then((createdUser) => {
@@ -328,13 +298,13 @@ describe('generateCRUDServices', () => {
       expect(createdAt).to.be.instanceof(Date);
       expect(createdAt.getTime()).to.be.at.least(now);
 
-      return dispatcher.dispatch('entity.User.replaceOne', Object.assign({}, createdUser, {
+      return plugin.send('entity.User.replaceOne', Object.assign({}, createdUser, {
         lastName: 'Donovan',
       })).then((updatedUser) => {
         const { updatedAt } = updatedUser;
         expect(updatedAt.getTime()).to.be.at.least(createdAt.getTime());
 
-        return dispatcher.dispatch('entity.User.updateOne', {
+        return plugin.send('entity.User.updateOne', {
           query: {
             _id: createdUser._id,
           },
@@ -344,7 +314,7 @@ describe('generateCRUDServices', () => {
             },
           },
         }).then(() => (
-          dispatcher.dispatch('entity.User.findById', createdUser._id)
+          plugin.send('entity.User.findById', createdUser._id)
             .then(({ updatedAt: lastUpdateAt }) => {
               expect(lastUpdateAt.getTime()).to.be.at.least(updatedAt.getTime());
             })
@@ -355,14 +325,14 @@ describe('generateCRUDServices', () => {
 
   describe('caching references', () => {
     it('should cache a single references', () => (
-      dispatcher.dispatch('entity.Category.createOne', {
+      plugin.send('entity.Category.createOne', {
         name: 'Laptops',
       }).then(category => (
-        dispatcher.dispatch('entity.Product.createOne', {
+        plugin.send('entity.Product.createOne', {
           name: 'MacBook Pro',
           categoryId: category._id,
         }).then(({ _id }) => (
-          dispatcher.dispatch('entity.Product.findOne', {
+          plugin.send('entity.Product.findOne', {
             query: { _id },
           }).then((product) => {
             expect(product.cache).to.exist();
@@ -375,16 +345,16 @@ describe('generateCRUDServices', () => {
     ));
 
     it('should cache an array of references', () => (
-      dispatcher.dispatch('entity.Product.createMany',
+      plugin.send('entity.Product.createMany',
         _.range(1, 5).map(id => ({
           name: `product${id}`,
         })),
       ).then(products => (
-        dispatcher.dispatch('entity.Category.createOne', {
+        plugin.send('entity.Category.createOne', {
           name: 'category1',
           productIds: products.map(({ _id }) => _id),
         }).then(({ _id }) => (
-          dispatcher.dispatch('entity.Category.findOne', {
+          plugin.send('entity.Category.findOne', {
             query: { _id },
           }).then((category) => {
             expect(category.products).to.exist();
@@ -395,18 +365,18 @@ describe('generateCRUDServices', () => {
     ));
 
     it('should update the cache when the reference gets updated', () => (
-      dispatcher.dispatch('entity.Category.createOne', {
+      plugin.send('entity.Category.createOne', {
         name: 'Laptops',
       }).then(category => (
-        dispatcher.dispatch('entity.Product.createOne', {
+        plugin.send('entity.Product.createOne', {
           name: 'MacBook Pro',
           categoryId: category._id,
         }).then(({ _id }) => (
-          dispatcher.dispatch('entity.Category.replaceOne', {
+          plugin.send('entity.Category.replaceOne', {
             ...category,
             name: 'Apple Products',
           }).then(() => (
-            dispatcher.dispatch('entity.Product.findOne', {
+            plugin.send('entity.Product.findOne', {
               query: { _id },
             }).then((product) => {
               expect(product.cache.category).to.exist();
@@ -419,14 +389,14 @@ describe('generateCRUDServices', () => {
     ));
 
     it('should cache update ref cache', () => (
-      dispatcher.dispatch('entity.Category.createOne', {
+      plugin.send('entity.Category.createOne', {
         name: 'Laptops',
       }).then(category => (
-        dispatcher.dispatch('entity.Product.createOne', {
+        plugin.send('entity.Product.createOne', {
           name: 'MacBook Pro',
           categoryId: category._id,
         }).then(({ _id }) => (
-          dispatcher.dispatch('entity.Category.updateOne', {
+          plugin.send('entity.Category.updateOne', {
             query: {
               _id: category._id,
             },
@@ -436,7 +406,7 @@ describe('generateCRUDServices', () => {
               },
             },
           }).then(() => (
-            dispatcher.dispatch('entity.Product.findOne', {
+            plugin.send('entity.Product.findOne', {
               query: { _id },
             }).then((product) => {
               expect(product.cache.category).to.exist();
@@ -450,7 +420,7 @@ describe('generateCRUDServices', () => {
   });
 
   it('should count the records', () => (
-    dispatcher.dispatch('entity.User.createMany', [{
+    plugin.send('entity.User.createMany', [{
       firstName: 'John1',
       lastName: 'Doe1',
       role: 'admin',
@@ -463,7 +433,7 @@ describe('generateCRUDServices', () => {
       lastName: 'Doe3',
       role: 'admin',
     }]).then(() => (
-      dispatcher.dispatch('entity.User.count', {
+      plugin.send('entity.User.count', {
         query: {
           role: 'admin',
         },
