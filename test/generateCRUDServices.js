@@ -4,7 +4,7 @@ import { expect } from 'chai'; // eslint-disable-line
 import sinon from 'sinon'; // eslint-disable-line
 import { MongoClient } from 'mongodb';
 import { RefManager } from 'mongo-dnorm';
-import { Plugin, Transport } from 'octobus.js';
+import { Plugin, ServiceBus } from 'octobus.js';
 import { generateCRUDServices, Store as OriginalStore, decorators } from '../src';
 
 const Store = decorators.withTimestamps(OriginalStore);
@@ -44,7 +44,7 @@ const productSchema = {
 };
 
 describe('generateCRUDServices', () => {
-  let transport;
+  let serviceBus;
   let plugin;
   let db;
 
@@ -55,9 +55,9 @@ describe('generateCRUDServices', () => {
   ));
 
   beforeEach(() => {
-    transport = new Transport();
+    serviceBus = new ServiceBus();
     plugin = new Plugin();
-    plugin.connect(transport);
+    plugin.connect(serviceBus);
     const refManager = new RefManager(db);
 
     plugin.subscribeTree('entity.User', generateCRUDServices('entity.User', {

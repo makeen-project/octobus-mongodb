@@ -38,7 +38,7 @@
     "lodash": "4.17.2",
     "mongo-dnorm": "0.2.4",
     "mongodb": "2.2.11",
-    "octobus.js": "0.21.1"
+    "octobus.js": "0.22.0"
   },
   "devDependencies": {
     "babel-cli": "6.18.0",
